@@ -1,0 +1,28 @@
+OASISFormat: 0.3
+Name:        mirage-block
+Version:     0.5.0
+Synopsis:    Mirage block driver for Unix
+Authors:     David Scott
+License:     ISC
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Library mirage_block
+  Pack:               true
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        mirage-block
+  Modules:            Block
+  BuildDepends:       cstruct, lwt, lwt.unix, mirage-types
+
+Executable test
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             test.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, mirage-block, cstruct, oUnit
+
+Test test
+  Command:            ./test.native
+  Run:                true
