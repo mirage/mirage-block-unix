@@ -14,12 +14,40 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *)
 
+type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
 module Raw = struct
   external openfile_direct: string -> bool -> int -> Unix.file_descr = "stub_openfile_direct"
 
   external blkgetsize64: string -> int64 = "stub_blkgetsize64"
 
   external fsync : Unix.file_descr -> unit = "stub_fsync"
+
+  external alloc_pages: int -> buf = "caml_alloc_pages"
+end
+
+module Memory = struct
+
+  let get n =
+    if n < 1
+    then raise (Invalid_argument "The number of page should be greater or equal to 1")
+    else
+      try Raw.alloc_pages n with _ ->
+      Gc.compact ();
+      try Raw.alloc_pages n with _ -> raise Out_of_memory
+
+  let page_size = 4096
+
+  let alloc_bigarray bytes =
+    (* round up to next PAGE_SIZE *)
+    let pages = (bytes + page_size - 1) / page_size in
+    (* but round-up 0 pages to 0 *)
+    let pages = max pages 1 in
+    get pages
+
+  let alloc bytes =
+    let larger_than_we_need = Cstruct.of_bigarray (alloc_bigarray bytes) in
+    Cstruct.sub larger_than_we_need 0 bytes
 end
 
 open Lwt
