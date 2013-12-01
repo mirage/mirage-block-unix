@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2011-2013 Citrix Inc
+ * Copyright (C) 2013 Citrix Inc
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,4 +14,42 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let _ = ()
+open Lwt
+open OUnit
+
+let test_enoent () =
+  let t =
+    (* Find a filename which doesn't exist *)
+    let rec does_not_exist i =
+      let name = Printf.sprintf "%s/mirage-block-test-missing.%d"
+        Filename.temp_dir_name i in
+      if Sys.file_exists name
+      then does_not_exist (i + 1)
+      else name in
+    let name = does_not_exist 0 in
+    Block.connect name >>= function
+    | `Ok _ -> failwith (Printf.sprintf "Block.connect %s should have failed" name)
+    | `Error _ -> return () in
+    Lwt_main.run t
+
+let test_open_rdonly () =
+  ()
+
+let test_open_file () =
+  ()
+
+
+
+let _ =
+  let verbose = ref false in
+  Arg.parse [
+    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
+  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
+  "Test unix block driver";
+
+  let suite = "block" >::: [
+    "test ENOENT" >:: test_enoent;
+    "test open read/only" >:: test_open_rdonly;
+    "test open read/write" >:: test_open_file;
+  ] in
+  run_test_tt ~verbose:!verbose suite
