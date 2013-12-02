@@ -1,2 +1,5 @@
+0.1.1 (2-Dec-2013)
+* add missing file
+
 0.1.0 (1-Dec-2013)
 * import first version of block driver from ocaml-fat
