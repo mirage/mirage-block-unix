@@ -1,0 +1,5 @@
+# OASIS_START
+# DO NOT EDIT (digest: c1076fe4f88bd54552501d43953ee96c)
+odirect_stubs.o
+blkgetsize64_stubs.o
+# OASIS_STOP
