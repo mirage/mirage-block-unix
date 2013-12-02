@@ -15,6 +15,7 @@
  *)
 
 open Lwt
+open Block
 open OUnit
 
 let find_unused_file () =
