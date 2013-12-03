@@ -43,19 +43,27 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
   const char *filename_c = strdup(String_val(filename));
 
   enter_blocking_section();
+#ifdef O_DIRECT
   int flags = O_DIRECT;
+#else
+  int flags = 0;
+#endif
   if (Bool_val(rw)) {
     flags |= O_RDWR;
   } else {
     flags |= O_RDONLY;
   }
   fd = open(filename_c, flags, Int_val(perm));
+  int ret = 0;
+#ifndef O_DIRECT
+  ret = fcntl(fd, F_NOCACHE);
+#endif
   leave_blocking_section();
 
   free((void*)filename_c);
 
   if (fd == -1) uerror("open", filename);
-
+  if (ret < 0)  uerror("open", filename);
   CAMLreturn(Val_int(fd));
 }
 
@@ -69,7 +77,9 @@ CAMLprim value stub_fsync (value fd)
 
 #define PAGE_SIZE 4096
 #include <stdlib.h>
+#if !defined(__APPLE__)
 #include <malloc.h>
+#endif
 
 /* Allocate a page-aligned bigarray of length [n_pages] pages.
    Since CAML_BA_MANAGED is set the bigarray C finaliser will
@@ -83,11 +93,11 @@ caml_alloc_pages(value n_pages)
   /* If the allocation fails, return None. The ocaml layer will
      be able to trigger a full GC which just might run finalizers
      of unused bigarrays which will free some memory. */
-  void* block = memalign(PAGE_SIZE, len);
+  void* block = NULL;
+  int ret = posix_memalign(&block, PAGE_SIZE, len);
 
-  if (block == NULL) {
+  if (ret < 0) {
     caml_failwith("memalign");
   }
   CAMLreturn(caml_ba_alloc_dims(CAML_BA_UINT8 | CAML_BA_C_LAYOUT | CAML_BA_MANAGED, 1, block, len));
 }
-
