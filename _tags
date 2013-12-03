@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 937c0331f4746995fa1c54d099d52b6c)
+# DO NOT EDIT (digest: 8411f257ac8f6cd519504ab35ac56ddd)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -25,10 +25,10 @@
 "lib/odirect_stubs.c": pkg_lwt.unix
 "lib/odirect_stubs.c": pkg_cstruct
 "lib/odirect_stubs.c": pkg_mirage-types
-"lib/blkgetsize64_stubs.c": pkg_lwt
-"lib/blkgetsize64_stubs.c": pkg_lwt.unix
-"lib/blkgetsize64_stubs.c": pkg_cstruct
-"lib/blkgetsize64_stubs.c": pkg_mirage-types
+"lib/blkgetsize_stubs.c": pkg_lwt
+"lib/blkgetsize_stubs.c": pkg_lwt.unix
+"lib/blkgetsize_stubs.c": pkg_cstruct
+"lib/blkgetsize_stubs.c": pkg_mirage-types
 # Executable test
 <lib_test/test.{native,byte}>: use_mirage_block
 <lib_test/test.{native,byte}>: pkg_lwt
