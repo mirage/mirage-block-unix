@@ -148,15 +148,28 @@ let complete op fd buffer =
 let really_read = complete Lwt_bytes.read
 let really_write = complete Lwt_bytes.write
 
+let lwt_wrap_exn op offset length f =
+  Lwt.catch f
+    (function
+     | End_of_file -> return (`Error (Unknown (Printf.sprintf "%s: End_of_file at offset %Ld with length %d" op offset length)))
+     | Unix.Unix_error(code, fn, arg) -> return (`Error (Unknown (Printf.sprintf "%s: %s in %s %s at offset %Ld with length %d" op (Unix.error_message code) fn arg offset length)))
+     | e -> return (`Error (Unknown (Printf.sprintf "%s: %s at offset %Ld with length %d" op (Printexc.to_string e) offset length))))
+
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
   | b :: bs ->
     begin match x.fd with
     | None -> return (`Error Disconnected)
     | Some fd ->
-      Lwt_unix.LargeFile.lseek fd Int64.(mul sector_start (of_int x.info.sector_size)) Unix.SEEK_SET >>= fun _ ->
-      really_read fd b >>= fun () ->
-      read x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
+      let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
+      lwt_wrap_exn "read" offset (Cstruct.len b)
+        (fun () ->
+          Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+          really_read fd b >>= fun () ->
+          return (`Ok ())
+        ) >>= function
+      | `Ok () -> read x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
+      | `Error x -> return (`Error x)
     end
 
 let rec write x sector_start buffers = match buffers with
@@ -165,7 +178,13 @@ let rec write x sector_start buffers = match buffers with
     begin match x.fd with
     | None -> return (`Error Disconnected)
     | Some fd ->
-      Lwt_unix.LargeFile.lseek fd Int64.(mul sector_start (of_int x.info.sector_size)) Unix.SEEK_SET >>= fun _ ->
-      really_write fd b >>= fun () ->
-      write x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
+      let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
+      lwt_wrap_exn "write" offset (Cstruct.len b)
+        (fun () ->
+          Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+          really_write fd b >>= fun () ->
+          return (`Ok ())
+        ) >>= function
+      | `Ok () -> write x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
+      | `Error x -> return (`Error x)
     end
