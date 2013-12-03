@@ -19,7 +19,7 @@ type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1
 module Raw = struct
   external openfile_direct: string -> bool -> int -> Unix.file_descr = "stub_openfile_direct"
 
-  external blkgetsize64: string -> int64 = "stub_blkgetsize64"
+  external blkgetsize: string -> int64 = "stub_blkgetsize"
 
   external fsync : Unix.file_descr -> unit = "stub_fsync"
 
@@ -89,13 +89,13 @@ module Result = struct
 end
 
 let stat x = Result.wrap_exn "stat" x Unix.LargeFile.stat x
-let blkgetsize64 x = Result.wrap_exn "BLKGETSIZE64" x Raw.blkgetsize64 x
+let blkgetsize x = Result.wrap_exn "BLKGETSIZE" x Raw.blkgetsize x
 
 let get_file_size x =
   let open Result in
   stat x >>= fun st -> match st.Unix.LargeFile.st_kind with
   | Unix.S_REG -> `Ok st.Unix.LargeFile.st_size
-  | Unix.S_BLK -> blkgetsize64 x
+  | Unix.S_BLK -> blkgetsize x
   | _ -> `Error (Unknown (Printf.sprintf "get_file_size %s: neither a file nor a block device" x))
 
 let connect name =

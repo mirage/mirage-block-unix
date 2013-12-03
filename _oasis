@@ -14,7 +14,7 @@ Library mirage_block
   Findlibname:        mirage-block
   Modules:            Block
   BuildDepends:       cstruct, lwt, lwt.unix, mirage-types
-  CSources:           odirect_stubs.c, blkgetsize64_stubs.c
+  CSources:           odirect_stubs.c, blkgetsize_stubs.c
 
 Executable test
   CompiledObject:     best
