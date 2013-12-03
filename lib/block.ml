@@ -16,6 +16,8 @@
 
 type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
+type id = string
+
 module Raw = struct
   external openfile_direct: string -> bool -> int -> Unix.file_descr = "stub_openfile_direct"
 
@@ -56,11 +58,12 @@ type 'a io = 'a Lwt.t
 
 type page_aligned_buffer = Cstruct.t
 
-type error =
-| Unknown of string
-| Unimplemented
-| Is_read_only
-| Disconnected
+type error = [
+| `Unknown of string
+| `Unimplemented
+| `Is_read_only
+| `Disconnected
+]
 
 type info = {
   read_write: bool;
@@ -86,7 +89,7 @@ module Result = struct
 
   let wrap_exn f' x' f x =
     try `Ok (f x)
-    with e -> `Error (Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
+    with e -> `Error (`Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
 end
 
 let stat x = Result.wrap_exn "stat" x Unix.LargeFile.stat x
@@ -97,7 +100,7 @@ let get_file_size x =
   stat x >>= fun st -> match st.Unix.LargeFile.st_kind with
   | Unix.S_REG -> `Ok st.Unix.LargeFile.st_size
   | Unix.S_BLK -> blkgetsize x
-  | _ -> `Error (Unknown (Printf.sprintf "get_file_size %s: neither a file nor a block device" x))
+  | _ -> `Error (`Unknown (Printf.sprintf "get_file_size %s: neither a file nor a block device" x))
 
 let connect name =
   (* first try read/write and then fall back to read/only *)
@@ -117,7 +120,7 @@ let connect name =
       let fd = Lwt_unix.of_unix_file_descr fd in
       return (`Ok { fd = Some fd; name; info = { sector_size; size_sectors; read_write } })
   with e ->
-    return (`Error (Unknown (Printf.sprintf "connect %s: failed to oppen file" name)))
+    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to oppen file" name)))
 
 let disconnect t = match t.fd with
   | Some fd ->
@@ -152,15 +155,15 @@ let really_write = complete Lwt_bytes.write
 let lwt_wrap_exn name op offset length f =
   Lwt.catch f
     (function
-     | End_of_file -> return (`Error (Unknown (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d" op name offset length)))
-     | Unix.Unix_error(code, fn, arg) -> return (`Error (Unknown (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg name offset length)))
-     | e -> return (`Error (Unknown (Printf.sprintf "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) name offset length))))
+     | End_of_file -> return (`Error (`Unknown (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d" op name offset length)))
+     | Unix.Unix_error(code, fn, arg) -> return (`Error (`Unknown (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg name offset length)))
+     | e -> return (`Error (`Unknown (Printf.sprintf "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) name offset length))))
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
   | b :: bs ->
     begin match x.fd with
-    | None -> return (`Error Disconnected)
+    | None -> return (`Error `Disconnected)
     | Some fd ->
       let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
       lwt_wrap_exn x.name "read" offset (Cstruct.len b)
@@ -177,8 +180,8 @@ let rec write x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
   | b :: bs ->
     begin match x with
-    | { fd = None } -> return (`Error Disconnected)
-    | { info = { read_write = false } } -> return (`Error Is_read_only)
+    | { fd = None } -> return (`Error `Disconnected)
+    | { info = { read_write = false } } -> return (`Error `Is_read_only)
     | { fd = Some fd } ->
       let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
       lwt_wrap_exn x.name "write" offset (Cstruct.len b)
