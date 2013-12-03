@@ -175,9 +175,10 @@ let rec read x sector_start buffers = match buffers with
 let rec write x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
   | b :: bs ->
-    begin match x.fd with
-    | None -> return (`Error Disconnected)
-    | Some fd ->
+    begin match x with
+    | { fd = None } -> return (`Error Disconnected)
+    | { info = { read_write = false } } -> return (`Error Is_read_only)
+    | { fd = Some fd } ->
       let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
       lwt_wrap_exn "write" offset (Cstruct.len b)
         (fun () ->
