@@ -70,6 +70,7 @@ type info = {
 
 type t = {
   mutable fd: Lwt_unix.file_descr option;
+  name: string;
   info: info;
 }
 
@@ -114,7 +115,7 @@ let connect name =
       let sector_size = 512 in (* XXX: hardcoded *)
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
-      return (`Ok { fd = Some fd; info = { sector_size; size_sectors; read_write } })
+      return (`Ok { fd = Some fd; name; info = { sector_size; size_sectors; read_write } })
   with e ->
     return (`Error (Unknown (Printf.sprintf "connect %s: failed to oppen file" name)))
 
@@ -148,12 +149,12 @@ let complete op fd buffer =
 let really_read = complete Lwt_bytes.read
 let really_write = complete Lwt_bytes.write
 
-let lwt_wrap_exn op offset length f =
+let lwt_wrap_exn name op offset length f =
   Lwt.catch f
     (function
-     | End_of_file -> return (`Error (Unknown (Printf.sprintf "%s: End_of_file at offset %Ld with length %d" op offset length)))
-     | Unix.Unix_error(code, fn, arg) -> return (`Error (Unknown (Printf.sprintf "%s: %s in %s %s at offset %Ld with length %d" op (Unix.error_message code) fn arg offset length)))
-     | e -> return (`Error (Unknown (Printf.sprintf "%s: %s at offset %Ld with length %d" op (Printexc.to_string e) offset length))))
+     | End_of_file -> return (`Error (Unknown (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d" op name offset length)))
+     | Unix.Unix_error(code, fn, arg) -> return (`Error (Unknown (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg name offset length)))
+     | e -> return (`Error (Unknown (Printf.sprintf "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) name offset length))))
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
@@ -162,7 +163,7 @@ let rec read x sector_start buffers = match buffers with
     | None -> return (`Error Disconnected)
     | Some fd ->
       let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
-      lwt_wrap_exn "read" offset (Cstruct.len b)
+      lwt_wrap_exn x.name "read" offset (Cstruct.len b)
         (fun () ->
           Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
           really_read fd b >>= fun () ->
@@ -180,7 +181,7 @@ let rec write x sector_start buffers = match buffers with
     | { info = { read_write = false } } -> return (`Error Is_read_only)
     | { fd = Some fd } ->
       let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
-      lwt_wrap_exn "write" offset (Cstruct.len b)
+      lwt_wrap_exn x.name "write" offset (Cstruct.len b)
         (fun () ->
           Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
           really_write fd b >>= fun () ->
