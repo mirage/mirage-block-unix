@@ -75,29 +75,3 @@ CAMLprim value stub_fsync (value fd)
   CAMLreturn(Val_unit);
 }
 
-#define PAGE_SIZE 4096
-#include <stdlib.h>
-#if !defined(__APPLE__)
-#include <malloc.h>
-#endif
-
-/* Allocate a page-aligned bigarray of length [n_pages] pages.
-   Since CAML_BA_MANAGED is set the bigarray C finaliser will
-   call free() whenever all sub-bigarrays are unreachable.
- */
-CAMLprim value
-caml_alloc_pages(value n_pages)
-{
-  CAMLparam1(n_pages);
-  size_t len = Int_val(n_pages) * PAGE_SIZE;
-  /* If the allocation fails, return None. The ocaml layer will
-     be able to trigger a full GC which just might run finalizers
-     of unused bigarrays which will free some memory. */
-  void* block = NULL;
-  int ret = posix_memalign(&block, PAGE_SIZE, len);
-
-  if (ret < 0) {
-    caml_failwith("memalign");
-  }
-  CAMLreturn(caml_ba_alloc_dims(CAML_BA_UINT8 | CAML_BA_C_LAYOUT | CAML_BA_MANAGED, 1, block, len));
-}

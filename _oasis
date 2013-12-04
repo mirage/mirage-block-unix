@@ -22,7 +22,7 @@ Executable test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, mirage-block, cstruct, oUnit
+  BuildDepends:       lwt, lwt.unix, mirage-block, cstruct, oUnit, io-page-unix
 
 Test test
   Command:            ./test.native
