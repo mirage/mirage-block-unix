@@ -21,13 +21,6 @@ with type 'a io = 'a Lwt.t
 and type     page_aligned_buffer = Cstruct.t
 and type     id = string
 
-module Memory: sig
-  (** page-aligned memory allocation *)
-
-  val alloc: int -> Cstruct.t
-  (** [alloc bytes] constructs a page-aligned buffer of size [bytes] *)
-end
-
 (** {0} low-level convenience functions *)
 
 val really_read: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t

@@ -18,6 +18,10 @@ open Lwt
 open Block
 open OUnit
 
+let alloc bytes =
+  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
+  Cstruct.sub pages 0 bytes
+
 let find_unused_file () =
   (* Find a filename which doesn't exist *)
   let rec does_not_exist i =
@@ -57,12 +61,12 @@ let test_open_read () =
     let size = Int64.(mul 1024L 1024L) in
     Lwt_unix.LargeFile.lseek fd Int64.(sub size 512L) Lwt_unix.SEEK_CUR >>= fun _ ->
     let message = "All work and no play makes Dave a dull boy.\n" in
-    let sector = Memory.alloc 512 in
+    let sector = alloc 512 in
     for i = 0 to 511 do
       Cstruct.set_char sector i (message.[i mod (String.length message)])
     done;
     Block.really_write fd sector >>= fun () ->
-    let sector' = Memory.alloc 512 in
+    let sector' = alloc 512 in
     Block.connect name >>= function
     | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" name)
     | `Ok device ->
