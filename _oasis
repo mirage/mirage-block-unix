@@ -1,5 +1,5 @@
 OASISFormat: 0.3
-Name:        mirage-block
+Name:        mirage-block-unix
 Version:     0.5.0
 Synopsis:    Mirage block driver for Unix
 Authors:     David Scott
@@ -11,7 +11,7 @@ Library mirage_block
   Pack:               true
   CompiledObject:     best
   Path:               lib
-  Findlibname:        mirage-block
+  Findlibname:        mirage-block-unix
   Modules:            Block
   BuildDepends:       cstruct, lwt, lwt.unix, mirage-types
   CSources:           odirect_stubs.c, blkgetsize_stubs.c
@@ -22,7 +22,7 @@ Executable test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, mirage-block, cstruct, oUnit, io-page-unix
+  BuildDepends:       lwt, lwt.unix, mirage-block-unix, cstruct, oUnit, io-page-unix
 
 Test test
   Command:            ./test.native
