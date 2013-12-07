@@ -7,7 +7,7 @@ License:     ISC
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 
-Library mirage_block
+Library mirage_block_unix
   CompiledObject:     best
   Path:               lib
   Findlibname:        mirage-block-unix
