@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="cstruct ounit lwt mirage-types"
+OPAM_PACKAGES="cstruct ounit lwt mirage-types io-page-unix"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
