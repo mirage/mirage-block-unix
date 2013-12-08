@@ -1,4 +1,5 @@
-trunk (unreleased)
+0.9.0 (08-Dec-2013)
+* depend on mirage-types-0.4.0+
 * catch low-level I/O errors and return an `Error
 
 0.1.1 (2-Dec-2013)

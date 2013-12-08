@@ -51,6 +51,8 @@ type t = {
   info: info;
 }
 
+let id { name } = name
+
 module Result = struct
   type ('a, 'b) result = [
   | `Ok of 'a

@@ -16,7 +16,7 @@
 
 (** Block device on top of Lwt_unix *)
 
-include V1.BLOCK.CLIENT
+include V1.BLOCK
 with type 'a io = 'a Lwt.t
 and type     page_aligned_buffer = Cstruct.t
 and type     id = string
