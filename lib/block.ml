@@ -33,10 +33,10 @@ type 'a io = 'a Lwt.t
 type page_aligned_buffer = Cstruct.t
 
 type error = [
-| `Unknown of string
-| `Unimplemented
-| `Is_read_only
-| `Disconnected
+  | `Unknown of string
+  | `Unimplemented
+  | `Is_read_only
+  | `Disconnected
 ]
 
 type info = {
@@ -55,17 +55,18 @@ let id { name } = name
 
 module Result = struct
   type ('a, 'b) result = [
-  | `Ok of 'a
-  | `Error of 'b
+    | `Ok of 'a
+    | `Error of 'b
   ]
 
   let ( >>= ) x f = match x with
-  | `Error y -> `Error y
-  | `Ok z -> f z
+    | `Error y -> `Error y
+    | `Ok z -> f z
 
   let wrap_exn f' x' f x =
     try `Ok (f x)
-    with e -> `Error (`Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
+    with e -> 
+      `Error (`Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
 end
 
 let stat x = Result.wrap_exn "stat" x Unix.LargeFile.stat x
@@ -73,10 +74,15 @@ let blkgetsize x = Result.wrap_exn "BLKGETSIZE" x Raw.blkgetsize x
 
 let get_file_size x =
   let open Result in
-  stat x >>= fun st -> match st.Unix.LargeFile.st_kind with
+  stat x
+  >>= fun st -> 
+  match st.Unix.LargeFile.st_kind with
   | Unix.S_REG -> `Ok st.Unix.LargeFile.st_size
   | Unix.S_BLK -> blkgetsize x
-  | _ -> `Error (`Unknown (Printf.sprintf "get_file_size %s: neither a file nor a block device" x))
+  | _ -> 
+    `Error
+      (`Unknown 
+         (Printf.sprintf "get_file_size %s: neither a file nor a block device" x))
 
 let connect name =
   (* first try read/write and then fall back to read/only *)
@@ -85,7 +91,7 @@ let connect name =
       try
         Raw.openfile_direct name true 0o0, true
       with _ ->
-      Raw.openfile_direct name false 0o0, false in
+        Raw.openfile_direct name false 0o0, false in
     match get_file_size name with
     | `Error e ->
       Unix.close fd;
@@ -131,41 +137,57 @@ let really_write = complete Lwt_bytes.write
 let lwt_wrap_exn name op offset length f =
   Lwt.catch f
     (function
-     | End_of_file -> return (`Error (`Unknown (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d" op name offset length)))
-     | Unix.Unix_error(code, fn, arg) -> return (`Error (`Unknown (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg name offset length)))
-     | e -> return (`Error (`Unknown (Printf.sprintf "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) name offset length))))
+      | End_of_file ->
+        return (`Error 
+                  (`Unknown 
+                     (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
+                        op name offset length)))
+      | Unix.Unix_error(code, fn, arg) -> 
+        return (`Error 
+                  (`Unknown 
+                     (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
+                        op (Unix.error_message code) fn arg name offset length)))
+      | e -> 
+        return (`Error 
+                  (`Unknown 
+                     (Printf.sprintf "%s: %s at file %s offset %Ld with length %d" 
+                        op (Printexc.to_string e) name offset length))))
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
   | b :: bs ->
     begin match x.fd with
-    | None -> return (`Error `Disconnected)
-    | Some fd ->
-      let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
-      lwt_wrap_exn x.name "read" offset (Cstruct.len b)
-        (fun () ->
-          Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-          really_read fd b >>= fun () ->
-          return (`Ok ())
-        ) >>= function
-      | `Ok () -> read x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
-      | `Error x -> return (`Error x)
+      | None -> return (`Error `Disconnected)
+      | Some fd ->
+        let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
+        lwt_wrap_exn x.name "read" offset (Cstruct.len b)
+          (fun () ->
+             Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+             really_read fd b >>= fun () ->
+             return (`Ok ())
+          ) >>= function
+        | `Ok () -> read x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
+        | `Error x -> return (`Error x)
     end
 
 let rec write x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
   | b :: bs ->
     begin match x with
-    | { fd = None } -> return (`Error `Disconnected)
-    | { info = { read_write = false } } -> return (`Error `Is_read_only)
-    | { fd = Some fd } ->
-      let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
-      lwt_wrap_exn x.name "write" offset (Cstruct.len b)
-        (fun () ->
-          Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-          really_write fd b >>= fun () ->
-          return (`Ok ())
-        ) >>= function
-      | `Ok () -> write x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
-      | `Error x -> return (`Error x)
+      | { fd = None } -> 
+        return (`Error `Disconnected)
+      | { info = { read_write = false } } -> 
+        return (`Error `Is_read_only)
+      | { fd = Some fd } ->
+        let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
+        lwt_wrap_exn x.name "write" offset (Cstruct.len b)
+          (fun () ->
+             Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+             really_write fd b >>= fun () ->
+             return (`Ok ())
+          ) >>= function
+        | `Ok () -> 
+          write x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
+        | `Error x -> 
+          return (`Error x)
     end
