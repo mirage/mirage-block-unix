@@ -1,6 +1,7 @@
-0.9.0 (08-Dec-2013)
+1.0.0 (08-Dec-2013)
 * depend on mirage-types-0.4.0+
 * catch low-level I/O errors and return an `Error
+* Reformat with `ocp-indent` to deal with the outrageously large monitors that Citrix use.
 
 0.1.1 (2-Dec-2013)
 * add missing file
