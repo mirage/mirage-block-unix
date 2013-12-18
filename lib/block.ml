@@ -47,6 +47,7 @@ type info = {
 
 type t = {
   mutable fd: Lwt_unix.file_descr option;
+  m: Lwt_mutex.t;
   name: string;
   info: info;
 }
@@ -100,7 +101,8 @@ let connect name =
       let sector_size = 512 in (* XXX: hardcoded *)
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
-      return (`Ok { fd = Some fd; name; info = { sector_size; size_sectors; read_write } })
+      let m = Lwt_mutex.create () in
+      return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write } })
   with e ->
     return (`Error (`Unknown (Printf.sprintf "connect %s: failed to oppen file" name)))
 
@@ -162,8 +164,11 @@ let rec read x sector_start buffers = match buffers with
         let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
         lwt_wrap_exn x.name "read" offset (Cstruct.len b)
           (fun () ->
-             Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-             really_read fd b >>= fun () ->
+             Lwt_mutex.with_lock x.m
+               (fun () ->
+                 Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+                 really_read fd b
+               ) >>= fun () ->
              return (`Ok ())
           ) >>= function
         | `Ok () -> read x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
@@ -182,8 +187,11 @@ let rec write x sector_start buffers = match buffers with
         let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
         lwt_wrap_exn x.name "write" offset (Cstruct.len b)
           (fun () ->
-             Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-             really_write fd b >>= fun () ->
+             Lwt_mutex.with_lock x.m
+               (fun () ->
+                 Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+                 really_write fd b
+               ) >>= fun () ->
              return (`Ok ())
           ) >>= function
         | `Ok () -> 
