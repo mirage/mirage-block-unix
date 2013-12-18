@@ -1,4 +1,4 @@
-trunk (unreleased)
+1.2.0 (18-Dec-2013)
 * Fix a serious race condition exposed when multiple threads access
   the same block device
 * Block.connect: open in buffered mode if the filename has prefix "buffered:".
