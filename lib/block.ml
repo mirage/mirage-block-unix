@@ -19,7 +19,9 @@ type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1
 type id = string
 
 module Raw = struct
-  external openfile_direct: string -> bool -> int -> Unix.file_descr = "stub_openfile_direct"
+  external openfile_unbuffered: string -> bool -> int -> Unix.file_descr = "stub_openfile_direct"
+  let openfile_buffered name rw perm =
+    Unix.openfile name [ if rw then Unix.O_RDWR else Unix.O_RDONLY ] perm
 
   external blkgetsize: string -> int64 = "stub_blkgetsize"
 
@@ -85,14 +87,25 @@ let get_file_size x =
       (`Unknown 
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" x))
 
+(* prefix which signals we want to use buffered I/O *)
+let buffered_prefix = "buffered:"
+
+let remove_prefix prefix x =
+  let prefix' = String.length prefix and x' = String.length x in
+  if x' >= prefix' && (String.sub x 0 prefix' = prefix)
+  then true, String.sub x prefix' (x' - prefix')
+  else false, x
+
 let connect name =
+  let buffered, name = remove_prefix buffered_prefix name in
+  let openfile = if buffered then Raw.openfile_buffered else Raw.openfile_unbuffered in
   (* first try read/write and then fall back to read/only *)
   try
     let fd, read_write =
       try
-        Raw.openfile_direct name true 0o0, true
+        openfile name true 0o0, true
       with _ ->
-        Raw.openfile_direct name false 0o0, false in
+        openfile name false 0o0, false in
     match get_file_size name with
     | `Error e ->
       Unix.close fd;

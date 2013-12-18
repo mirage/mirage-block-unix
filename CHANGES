@@ -1,6 +1,8 @@
 trunk (unreleased)
 * Fix a serious race condition exposed when multiple threads access
   the same block device
+* Block.connect: open in buffered mode if the filename has prefix "buffered:".
+  The default is still to use unbuffered (like mirage-block-xen)
 
 1.1.0 (16-Dec-2013)
 * Expose the `blkgetsize` function in the external signature.
