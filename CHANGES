@@ -1,3 +1,6 @@
+trunk (unreleased)
+* Update to new io-page{,.unix} ocamlfind structure
+
 1.2.0 (18-Dec-2013)
 * Fix a serious race condition exposed when multiple threads access
   the same block device
