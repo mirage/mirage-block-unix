@@ -1,4 +1,4 @@
-trunk (unreleased)
+1.2.1 (01-Feb-2013)
 * Update to new io-page{,.unix} ocamlfind structure
 
 1.2.0 (18-Dec-2013)
