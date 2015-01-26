@@ -28,3 +28,5 @@ val really_read: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
 val really_write: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
 
 val blkgetsize: string -> [ `Ok of int64 | `Error of error ]
+
+val connect : string -> [`Ok of t | `Error of error] io
