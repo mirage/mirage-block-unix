@@ -63,7 +63,7 @@ int blkgetsize(int fd, uint64_t *psize)
   return ret;
 }
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__NetBSD__)
 #include <sys/disk.h>
 
 int blkgetsize(int fd, uint64_t *psize)
