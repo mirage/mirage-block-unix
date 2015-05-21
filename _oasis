@@ -16,6 +16,7 @@ Library mirage_block_unix
   CSources:           odirect_stubs.c, blkgetsize_stubs.c
 
 Executable test
+  Build$:             flag(tests)
   CompiledObject:     best
   Path:               lib_test
   MainIs:             test.ml
@@ -25,4 +26,4 @@ Executable test
 
 Test test
   Command:            ./test.native
-  Run:                true
+  Run$:               flag(tests)
