@@ -80,26 +80,19 @@ int blkgetsize(int fd, uint64_t *psize)
 extern void uerror(char *cmdname, value cmdarg);
 #define Nothing ((value) 0)
 
-CAMLprim value stub_blkgetsize(value filename){
-  CAMLparam1(filename);
+CAMLprim value stub_blkgetsize(value fd){
+  CAMLparam1(fd);
   CAMLlocal1(result);
   uint64_t size_in_bytes;
-  int fd;
+  int c_fd = Int_val(fd); /* safe only because Unix.file_descr = int */
   int success = -1;
 
-  const char *filename_c = strdup(String_val(filename));
-
   enter_blocking_section();
-  fd = open(filename_c, O_RDONLY, 0);
-  if (blkgetsize(fd, &size_in_bytes) == 0)
+  if (blkgetsize(c_fd, &size_in_bytes) == 0)
     success = 0;
-  close(fd);
   leave_blocking_section();
 
-  free((void*)filename_c);
-
-  if (fd == -1) uerror("open", filename);
-  if (success == -1) uerror("BLKGETSIZE", filename);
+  if (success == -1) uerror("BLKGETSIZE", Nothing);
 
   result = caml_copy_int64(size_in_bytes);
   CAMLreturn(result);
