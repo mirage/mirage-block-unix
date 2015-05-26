@@ -23,7 +23,7 @@ module Raw = struct
   let openfile_buffered name rw perm =
     Unix.openfile name [ if rw then Unix.O_RDWR else Unix.O_RDONLY ] perm
 
-  external blkgetsize: string -> int64 = "stub_blkgetsize"
+  external blkgetsize: Unix.file_descr -> int64 = "stub_blkgetsize"
 
   external fsync : Unix.file_descr -> unit = "stub_fsync"
 end
@@ -72,20 +72,20 @@ module Result = struct
       `Error (`Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
 end
 
-let stat x = Result.wrap_exn "stat" x Unix.LargeFile.stat x
-let blkgetsize x = Result.wrap_exn "BLKGETSIZE" x Raw.blkgetsize x
+let stat filename fd = Result.wrap_exn "stat" filename Unix.LargeFile.fstat fd
+let blkgetsize filename fd = Result.wrap_exn "BLKGETSIZE" filename Raw.blkgetsize fd
 
-let get_file_size x =
+let get_file_size filename fd =
   let open Result in
-  stat x
+  stat filename fd
   >>= fun st -> 
   match st.Unix.LargeFile.st_kind with
   | Unix.S_REG -> `Ok st.Unix.LargeFile.st_size
-  | Unix.S_BLK -> blkgetsize x
+  | Unix.S_BLK -> blkgetsize filename fd
   | _ -> 
     `Error
       (`Unknown 
-         (Printf.sprintf "get_file_size %s: neither a file nor a block device" x))
+         (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
 (* prefix which signals we want to use buffered I/O *)
 let buffered_prefix = "buffered:"
@@ -106,7 +106,7 @@ let connect name =
         openfile name true 0o0, true
       with _ ->
         openfile name false 0o0, false in
-    match get_file_size name with
+    match get_file_size name fd with
     | `Error e ->
       Unix.close fd;
       return (`Error e)
