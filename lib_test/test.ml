@@ -17,20 +17,7 @@
 open Lwt
 open Block
 open OUnit
-
-let alloc bytes =
-  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
-  Cstruct.sub pages 0 bytes
-
-let find_unused_file () =
-  (* Find a filename which doesn't exist *)
-  let rec does_not_exist i =
-    let name = Printf.sprintf "%s/mirage-block-test.%d.%d"
-      Filename.temp_dir_name (Unix.getpid ()) i in
-    if Sys.file_exists name
-    then does_not_exist (i + 1)
-    else name in
-  does_not_exist 0
+open Utils
 
 let test_enoent () =
   let t =
@@ -39,20 +26,6 @@ let test_enoent () =
     | `Ok _ -> failwith (Printf.sprintf "Block.connect %s should have failed" name)
     | `Error _ -> return () in
     Lwt_main.run t
-
-exception Cstruct_differ
-
-let cstruct_equal a b =
-  let check_contents a b =
-    try
-      for i = 0 to Cstruct.len a - 1 do
-        let a' = Cstruct.get_char a i in
-        let b' = Cstruct.get_char b i in
-        if a' <> b' then raise Cstruct_differ
-      done;
-      true
-    with _ -> false in
-      (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
 
 let test_open_read () =
   let t =
@@ -78,6 +51,31 @@ let test_open_read () =
       end in
   Lwt_main.run t
 
+let test_open_block () =
+  let t =
+    with_temp_file
+      (fun file ->
+        Block.connect file >>= function
+        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+        | `Ok device1 ->
+          Block.get_info device1
+          >>= fun info1 ->
+          let size1 = Int64.(mul info1.Block.size_sectors (of_int info1.Block.sector_size)) in
+          with_temp_volume file
+            (fun volume ->
+               Block.connect volume >>= function
+               | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" volume)
+               | `Ok device2 ->
+                  Block.get_info device2
+                  >>= fun info2 ->
+                  let size2 = Int64.(mul info2.Block.size_sectors (of_int info2.Block.sector_size)) in
+                  (* The size of the file and the block device should be the same *)
+                  assert_equal ~printer:Int64.to_string size1 size2;
+                  return ()
+            )
+      ) in
+  Lwt_main.run t
+
 let _ =
   let verbose = ref false in
   Arg.parse [
@@ -88,5 +86,6 @@ let _ =
   let suite = "block" >::: [
     "test ENOENT" >:: test_enoent;
     "test open read" >:: test_open_read;
+    "test opening a block device" >:: test_open_block;
   ] in
   run_test_tt ~verbose:!verbose suite
