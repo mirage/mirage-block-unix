@@ -107,13 +107,15 @@ let run ?(env= [| |]) ?stdin cmd args =
     to_close := stdin_readable :: stdin_writable :: !to_close;
     (* stdout buffers to a temp file *)
     let stdout_filename = Filename.temp_file (Filename.basename Sys.argv.(0)) "stdout" in
-    let stdout_readable = Unix.openfile stdout_filename [ Unix.O_RDONLY; Unix.O_CREAT; Unix.O_CLOEXEC ] 0o0600 in
+    let stdout_readable = Unix.openfile stdout_filename [ Unix.O_RDONLY; Unix.O_CREAT; ] 0o0600 in
+    Unix.set_close_on_exec stdout_readable;
     let stdout_writable = Unix.openfile stdout_filename [ Unix.O_WRONLY ] 0o0600 in
     to_close := stdout_readable :: stdout_writable :: !to_close;
     Unix.unlink stdout_filename;
     (* stderr buffers to a temp file *)
     let stderr_filename = Filename.temp_file (Filename.basename Sys.argv.(0)) "stderr" in
-    let stderr_readable = Unix.openfile stderr_filename [ Unix.O_RDONLY; Unix.O_CREAT; Unix.O_CLOEXEC ] 0o0600 in
+    let stderr_readable = Unix.openfile stderr_filename [ Unix.O_RDONLY; Unix.O_CREAT; ] 0o0600 in
+    Unix.set_close_on_exec stderr_readable;
     let stderr_writable = Unix.openfile stderr_filename [ Unix.O_WRONLY ] 0o0600 in
     to_close := stderr_readable :: stderr_writable :: !to_close;
     Unix.unlink stderr_filename;
