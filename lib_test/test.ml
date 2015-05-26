@@ -51,6 +51,31 @@ let test_open_read () =
       end in
   Lwt_main.run t
 
+let test_open_block () =
+  let t =
+    with_temp_file
+      (fun file ->
+        Block.connect file >>= function
+        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+        | `Ok device1 ->
+          Block.get_info device1
+          >>= fun info1 ->
+          let size1 = Int64.(mul info1.Block.size_sectors (of_int info1.Block.sector_size)) in
+          with_temp_volume file
+            (fun volume ->
+               Block.connect volume >>= function
+               | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" volume)
+               | `Ok device2 ->
+                  Block.get_info device2
+                  >>= fun info2 ->
+                  let size2 = Int64.(mul info2.Block.size_sectors (of_int info2.Block.sector_size)) in
+                  (* The size of the file and the block device should be the same *)
+                  assert_equal ~printer:Int64.to_string size1 size2;
+                  return ()
+            )
+      ) in
+  Lwt_main.run t
+
 let _ =
   let verbose = ref false in
   Arg.parse [
@@ -61,5 +86,6 @@ let _ =
   let suite = "block" >::: [
     "test ENOENT" >:: test_enoent;
     "test open read" >:: test_open_read;
+    "test opening a block device" >:: test_open_block;
   ] in
   run_test_tt ~verbose:!verbose suite
