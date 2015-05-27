@@ -1,3 +1,8 @@
+2.0.0 (27-Mar-2015):
+* Incompatible API change: Block.blkgetsize takes an extra argument (a file descriptor)
+* Support NetBSD through DIOCGMEDIASIZE
+* Support rumprun by avoiding re-opening files, instead we use file descriptors internally
+
 1.2.2 (07-Mar-2015)
 * Expose an explicit `connect` function in the interface signature. (#20)
 * Modernise Travis scripts with centralised ones.
