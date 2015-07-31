@@ -76,6 +76,31 @@ let test_open_block () =
       ) in
   Lwt_main.run t
 
+let test_eof () =
+  let t =
+    let name = find_unused_file () in
+    Lwt_unix.openfile name [ Lwt_unix.O_CREAT; Lwt_unix.O_WRONLY ] 0o0444 >>= fun fd ->
+    let size = Int64.(mul 1024L 1024L) in
+    Lwt_unix.LargeFile.lseek fd Int64.(sub size 512L) Lwt_unix.SEEK_CUR >>= fun _ ->
+    let message = "All work and no play makes Dave a dull boy.\n" in
+    let sector = alloc 512 in
+    for i = 0 to 511 do
+      Cstruct.set_char sector i (message.[i mod (String.length message)])
+    done;
+    Block.really_write fd sector >>= fun () ->
+    let sector' = alloc 512 in
+    let sector'' = alloc 1024 in
+    Block.connect name >>= function
+    | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" name)
+    | `Ok device ->
+      Block.write device 2046L [ sector'; sector'' ] >>= function
+      | `Ok _ -> failwith (Printf.sprintf "Block.write %s should have failed" name)
+      | `Error _ ->
+        Block.read device 2046L [ sector'; sector'' ] >>= function
+        | `Ok _ -> failwith (Printf.sprintf "Block.read %s should have failed" name)
+        | `Error _ -> return () in
+  Lwt_main.run t
+
 let _ =
   let verbose = ref false in
   Arg.parse [
@@ -87,5 +112,6 @@ let _ =
     "test ENOENT" >:: test_enoent;
     "test open read" >:: test_open_read;
     "test opening a block device" >:: test_open_block;
+    "test read/write after last sector" >:: test_eof;
   ] in
   run_test_tt ~verbose:!verbose suite
