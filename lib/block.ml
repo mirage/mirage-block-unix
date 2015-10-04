@@ -177,6 +177,8 @@ let rec read x sector_start buffers = match buffers with
         let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
         lwt_wrap_exn x.name "read" offset (Cstruct.len b)
           (fun () ->
+             if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
+                x.info.size_sectors then fail End_of_file else
              Lwt_mutex.with_lock x.m
                (fun () ->
                  Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
@@ -200,6 +202,8 @@ let rec write x sector_start buffers = match buffers with
         let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
         lwt_wrap_exn x.name "write" offset (Cstruct.len b)
           (fun () ->
+             if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
+                x.info.size_sectors then fail End_of_file else
              Lwt_mutex.with_lock x.m
                (fun () ->
                  Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
