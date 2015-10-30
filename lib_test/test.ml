@@ -71,7 +71,7 @@ let test_open_block () =
                   let size2 = Int64.(mul info2.Block.size_sectors (of_int info2.Block.sector_size)) in
                   (* The size of the file and the block device should be the same *)
                   assert_equal ~printer:Int64.to_string size1 size2;
-                  return ()
+                  Block.disconnect device2
             )
       ) in
   Lwt_main.run t
