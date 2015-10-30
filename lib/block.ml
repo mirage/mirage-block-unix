@@ -51,7 +51,7 @@ type t = {
   mutable fd: Lwt_unix.file_descr option;
   m: Lwt_mutex.t;
   name: string;
-  info: info;
+  mutable info: info;
 }
 
 let id { name } = name
@@ -158,6 +158,7 @@ let lwt_wrap_exn name op offset length f =
                      (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
                         op name offset length)))
       | Unix.Unix_error(code, fn, arg) -> 
+                      Printf.fprintf stderr "%s\n%!" (Unix.error_message code);
         return (`Error 
                   (`Unknown 
                      (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
@@ -216,3 +217,17 @@ let rec write x sector_start buffers = match buffers with
         | `Error x -> 
           return (`Error x)
     end
+
+let resize t new_size_sectors =
+  let new_size_bytes = Int64.(mul new_size_sectors (of_int t.info.sector_size)) in
+  match t.fd with
+    | None -> return (`Error `Disconnected)
+    | Some fd ->
+      lwt_wrap_exn t.name "ftruncate" new_size_bytes 0
+        (fun () ->
+                Printf.fprintf stderr "ftruncate %Ld\n%!" new_size_bytes;
+          Lwt_unix.LargeFile.ftruncate fd new_size_bytes
+          >>= fun () ->
+          t.info <- { t.info with size_sectors = new_size_sectors };
+          return (`Ok ())
+        )

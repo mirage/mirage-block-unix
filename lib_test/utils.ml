@@ -80,6 +80,10 @@ let canonicalise x =
 
 exception Bad_exit of int * string * string list * string * string
 
+let rec waitpid pid =
+  try Unix.waitpid [] pid
+  with Unix.Unix_error (Unix.EINTR, _, _) -> waitpid pid
+
 let run ?(env= [| |]) ?stdin cmd args =
   let cmd = canonicalise cmd in
   debug "%s %s" cmd (String.concat " " args);
@@ -134,8 +138,7 @@ let run ?(env= [| |]) ?stdin cmd args =
       then failwith (Printf.sprintf "short write to process stdin: only wrote %d bytes" n);
     end;
     close stdin_writable;
-
-    let _, status = Unix.waitpid [] pid in
+    let _, status = waitpid pid in
 
     let stdout = read_all stdout_readable in
     let stderr = read_all stderr_readable in
@@ -166,17 +169,33 @@ let with_temp_file f =
   let path = find_unused_file () in
   finally
     (fun () ->
-      ignore_string (run "dd" [ "if=/dev/zero"; "of=" ^ path; "seek=1024"; "bs=1M"; "count=1"]);
+      ignore_string (run "dd" [ "if=/dev/zero"; "of=" ^ path; "seek=1024"; "bs=1048576"; "count=1"]);
       f path
     ) (fun () ->
       rm_f path
     )
 
-let with_temp_volume path f =
+let with_hdiutil path f =
+  let dev = String.trim (run "hdiutil" [ "attach"; "-imagekey"; "diskimage-class=CRawDiskImage"; "-nomount"; path ]) in
+  finally
+    (fun () -> f dev)
+    (fun () ->
+      let rec loop = function
+        | 0 -> failwith (Printf.sprintf "hdiutil detach %s keeps failing" dev)
+        | n ->
+          try
+            ignore_string (run "hdiutil" [ "detach"; dev ])
+          with _ ->
+            Unix.sleep 1;
+            loop (n - 1) in
+      loop 5
+    )
+
+let with_losetup path f =
   let dev =
-    ignore_string (run "losetup" [ "-f"; path ]);
+    ignore_string (run "sudo" [ "losetup"; "-f"; path ]);
     (* /dev/loop0: [fd00]:1973802 (/tmp/SR.createc04251volume) *)
-    let line = run "losetup" [ "-j"; path ] in
+    let line = run "sudo" [ "losetup"; "-j"; path ] in
     try
       let i = String.index line ' ' in
       String.sub line 0 (i - 1)
@@ -187,8 +206,13 @@ let with_temp_volume path f =
   finally
     (fun () -> f dev)
     (fun () ->
-      ignore_string (run "losetup" [ "-d"; dev ])
+      ignore_string (run "sudo" [ "losetup"; "-d"; dev ])
     )
+
+let with_temp_volume path f =
+  (if String.trim (run "uname" []) = "Darwin"
+   then with_hdiutil
+   else with_losetup) path f
 
 exception Cstruct_differ
 
