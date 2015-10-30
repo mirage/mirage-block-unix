@@ -101,11 +101,36 @@ let test_eof () =
         | `Error _ -> return () in
   Lwt_main.run t
 
+let test_resize () =
+  let t =
+    let name = find_unused_file () in
+    Lwt_unix.openfile name [ Lwt_unix.O_CREAT; Lwt_unix.O_WRONLY ] 0o0644
+    >>= fun fd ->
+    Lwt_unix.close fd
+    >>= fun () ->
+    Block.connect name
+    >>= function
+    | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" name)
+    | `Ok device ->
+      Block.get_info device
+      >>= fun info1 ->
+      assert_equal ~printer:Int64.to_string 0L info1.Block.size_sectors;
+      Block.resize device 1L
+      >>= function
+      | `Error _ -> failwith (Printf.sprintf "Block.resize %s failed" name)
+      | `Ok () ->
+        Block.get_info device
+        >>= fun info2 ->
+        assert_equal ~printer:Int64.to_string 1L info2.Block.size_sectors;
+        return () in
+  Lwt_main.run t
+
 let _ =
   let suite = "block" >::: [
     "test ENOENT" >:: test_enoent;
     "test open read" >:: test_open_read;
     "test opening a block device" >:: test_open_block;
     "test read/write after last sector" >:: test_eof;
+    "test resize" >:: test_resize;
   ] in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
