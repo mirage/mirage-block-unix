@@ -51,7 +51,7 @@ type t = {
   mutable fd: Lwt_unix.file_descr option;
   m: Lwt_mutex.t;
   name: string;
-  info: info;
+  mutable info: info;
 }
 
 let id { name } = name
@@ -216,3 +216,16 @@ let rec write x sector_start buffers = match buffers with
         | `Error x -> 
           return (`Error x)
     end
+
+let resize t new_size_sectors =
+  let new_size_bytes = Int64.(mul new_size_sectors (of_int t.info.sector_size)) in
+  match t.fd with
+    | None -> return (`Error `Disconnected)
+    | Some fd ->
+      lwt_wrap_exn t.name "ftruncate" new_size_bytes 0
+        (fun () ->
+          Lwt_unix.LargeFile.ftruncate fd new_size_bytes
+          >>= fun () ->
+          t.info <- { t.info with size_sectors = new_size_sectors };
+          return (`Ok ())
+        )

@@ -33,3 +33,8 @@ val blkgetsize: string -> Unix.file_descr -> [ `Ok of int64 | `Error of error ]
     message. *)
 
 val connect : string -> [`Ok of t | `Error of error] io
+
+val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
+(** [resize t new_size_sectors] attempts to resize the connected device
+    to have the given number of sectors. If successful, subsequent calls
+    to [get_info] will reflect the new size. *)
