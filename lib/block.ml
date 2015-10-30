@@ -158,6 +158,7 @@ let lwt_wrap_exn name op offset length f =
                      (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
                         op name offset length)))
       | Unix.Unix_error(code, fn, arg) -> 
+                      Printf.fprintf stderr "%s\n%!" (Unix.error_message code);
         return (`Error 
                   (`Unknown 
                      (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
@@ -224,6 +225,7 @@ let resize t new_size_sectors =
     | Some fd ->
       lwt_wrap_exn t.name "ftruncate" new_size_bytes 0
         (fun () ->
+                Printf.fprintf stderr "ftruncate %Ld\n%!" new_size_bytes;
           Lwt_unix.LargeFile.ftruncate fd new_size_bytes
           >>= fun () ->
           t.info <- { t.info with size_sectors = new_size_sectors };

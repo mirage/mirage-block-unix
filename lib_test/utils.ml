@@ -193,9 +193,9 @@ let with_hdiutil path f =
 
 let with_losetup path f =
   let dev =
-    ignore_string (run "losetup" [ "-f"; path ]);
+    ignore_string (run "sudo" [ "losetup"; "-f"; path ]);
     (* /dev/loop0: [fd00]:1973802 (/tmp/SR.createc04251volume) *)
-    let line = run "losetup" [ "-j"; path ] in
+    let line = run "sudo" [ "losetup"; "-j"; path ] in
     try
       let i = String.index line ' ' in
       String.sub line 0 (i - 1)
@@ -206,7 +206,7 @@ let with_losetup path f =
   finally
     (fun () -> f dev)
     (fun () ->
-      ignore_string (run "losetup" [ "-d"; dev ])
+      ignore_string (run "sudo" [ "losetup"; "-d"; dev ])
     )
 
 let with_temp_volume path f =
