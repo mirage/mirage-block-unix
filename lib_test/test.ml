@@ -102,16 +102,10 @@ let test_eof () =
   Lwt_main.run t
 
 let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-  "Test unix block driver";
-
   let suite = "block" >::: [
     "test ENOENT" >:: test_enoent;
     "test open read" >:: test_open_read;
     "test opening a block device" >:: test_open_block;
     "test read/write after last sector" >:: test_eof;
   ] in
-  run_test_tt ~verbose:!verbose suite
+  OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)

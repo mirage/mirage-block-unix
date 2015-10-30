@@ -25,5 +25,6 @@ Executable test
   BuildDepends:       lwt, lwt.unix, mirage-block-unix, cstruct, oUnit, io-page.unix, io-page
 
 Test test
-  Command:            ./test.native
   Run$:               flag(tests)
+  Command:            $test -runner sequential
+  WorkingDirectory:   lib_test
