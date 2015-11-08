@@ -225,7 +225,6 @@ let resize t new_size_sectors =
     | Some fd ->
       lwt_wrap_exn t.name "ftruncate" new_size_bytes 0
         (fun () ->
-                Printf.fprintf stderr "ftruncate %Ld\n%!" new_size_bytes;
           Lwt_unix.LargeFile.ftruncate fd new_size_bytes
           >>= fun () ->
           t.info <- { t.info with size_sectors = new_size_sectors };
