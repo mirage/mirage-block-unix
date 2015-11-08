@@ -230,3 +230,14 @@ let resize t new_size_sectors =
           t.info <- { t.info with size_sectors = new_size_sectors };
           return (`Ok ())
         )
+
+let flush t =
+  match t.fd with
+    | None -> return (`Error `Disconnected)
+    | Some fd ->
+      lwt_wrap_exn t.name "fsync" 0L 0
+        (fun () ->
+          Lwt_unix.fsync fd
+          >>= fun () ->
+          return (`Ok ())
+        )
