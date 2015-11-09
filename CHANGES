@@ -1,6 +1,10 @@
-unreleased
+2.1.0 (9-Nov-2015)
 * Add `Block.resize` to resize file-backed devices
 * Unit tests now work on OSX
+* opam file improvements
+* fail on read/write attempts after last sector
+* add `Block.flush` for when operating in buffered mode
+* add support for sparseness via `Block.seek_mapped` and `Block.seek_unmapped`
 
 2.0.0 (27-Mar-2015):
 * Incompatible API change: Block.blkgetsize takes an extra argument (a file descriptor)
