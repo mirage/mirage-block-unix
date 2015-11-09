@@ -66,12 +66,3 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
   if (ret < 0)  uerror("open", filename);
   CAMLreturn(Val_int(fd));
 }
-
-CAMLprim value stub_fsync (value fd)
-{
-  CAMLparam1(fd);
-  int c_fd = Int_val(fd);
-  if (fsync(c_fd) != 0) uerror("fsync", Nothing);
-  CAMLreturn(Val_unit);
-}
-

@@ -25,8 +25,6 @@ module Raw = struct
 
   external blkgetsize: Unix.file_descr -> int64 = "stub_blkgetsize"
 
-  external fsync : Unix.file_descr -> unit = "stub_fsync"
-
   external lseek_data : Unix.file_descr -> int64 -> int64 = "stub_lseek_data_64"
 
   external lseek_hole : Unix.file_descr -> int64 -> int64 = "stub_lseek_hole_64"
