@@ -158,7 +158,6 @@ let lwt_wrap_exn name op offset length f =
                      (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
                         op name offset length)))
       | Unix.Unix_error(code, fn, arg) ->
-                      Printf.fprintf stderr "%s\n%!" (Unix.error_message code);
         return (`Error
                   (`Unknown
                      (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
