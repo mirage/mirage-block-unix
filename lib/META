@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9684f56c7ca6b61d36c9ed8d7747a191)
-version = "2.0.0"
+# DO NOT EDIT (digest: 9605ad60470b87ad4265ebe638996635)
+version = "2.1.0"
 description = "Mirage block driver for Unix"
 requires = "cstruct lwt lwt.unix mirage-types"
 archive(byte) = "mirage_block_unix.cma"
