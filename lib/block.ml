@@ -251,9 +251,12 @@ let seek_mapped t from =
       let offset = Int64.(mul from (of_int t.info.sector_size)) in
       lwt_wrap_exn t.name "seek_mapped" offset 0
         (fun () ->
-          let fd = Lwt_unix.unix_file_descr fd in
-          let offset = Raw.lseek_data fd offset in
-          return (`Ok Int64.(div offset (of_int t.info.sector_size)))
+          Lwt_mutex.with_lock t.m
+            (fun () ->
+              let fd = Lwt_unix.unix_file_descr fd in
+              let offset = Raw.lseek_data fd offset in
+              return (`Ok Int64.(div offset (of_int t.info.sector_size)))
+            )
         )
 
 let seek_unmapped t from =
@@ -263,7 +266,10 @@ let seek_unmapped t from =
       let offset = Int64.(mul from (of_int t.info.sector_size)) in
       lwt_wrap_exn t.name "seek_unmapped" offset 0
         (fun () ->
-          let fd = Lwt_unix.unix_file_descr fd in
-          let offset = Raw.lseek_hole fd offset in
-          return (`Ok Int64.(div offset (of_int t.info.sector_size)))
+          Lwt_mutex.with_lock t.m
+            (fun () ->
+              let fd = Lwt_unix.unix_file_descr fd in
+              let offset = Raw.lseek_hole fd offset in
+              return (`Ok Int64.(div offset (of_int t.info.sector_size)))
+            )
         )
