@@ -38,3 +38,7 @@ val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
 (** [resize t new_size_sectors] attempts to resize the connected device
     to have the given number of sectors. If successful, subsequent calls
     to [get_info] will reflect the new size. *)
+
+val flush : t -> [ `Ok of unit | `Error of error ] io
+(** [flush t] flushes any buffers, if the file has been opened in buffered
+    mode *)

@@ -125,6 +125,20 @@ let test_resize () =
         return () in
   Lwt_main.run t
 
+let test_flush () =
+  let t =
+    with_temp_file
+      (fun file ->
+        Block.connect file >>= function
+        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+        | `Ok device1 ->
+          Block.flush device1 >>= function
+           | `Error _ -> failwith (Printf.sprintf "Block.flush %s failed" file)
+           | `Ok () ->
+            Block.disconnect device1
+      ) in
+  Lwt_main.run t
+
 let _ =
   let suite = "block" >::: [
     "test ENOENT" >:: test_enoent;
@@ -134,5 +148,6 @@ let _ =
     *)
     "test read/write after last sector" >:: test_eof;
     "test resize" >:: test_resize;
+    "test flush" >:: test_flush;
   ] in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)

@@ -68,7 +68,7 @@ module Result = struct
 
   let wrap_exn f' x' f x =
     try `Ok (f x)
-    with e -> 
+    with e ->
       `Error (`Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
 end
 
@@ -78,13 +78,13 @@ let blkgetsize filename fd = Result.wrap_exn "BLKGETSIZE" filename Raw.blkgetsiz
 let get_file_size filename fd =
   let open Result in
   stat filename fd
-  >>= fun st -> 
+  >>= fun st ->
   match st.Unix.LargeFile.st_kind with
   | Unix.S_REG -> `Ok st.Unix.LargeFile.st_size
   | Unix.S_BLK -> blkgetsize filename fd
-  | _ -> 
+  | _ ->
     `Error
-      (`Unknown 
+      (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
 (* prefix which signals we want to use buffered I/O *)
@@ -153,20 +153,19 @@ let lwt_wrap_exn name op offset length f =
   Lwt.catch f
     (function
       | End_of_file ->
-        return (`Error 
-                  (`Unknown 
+        return (`Error
+                  (`Unknown
                      (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
                         op name offset length)))
-      | Unix.Unix_error(code, fn, arg) -> 
-                      Printf.fprintf stderr "%s\n%!" (Unix.error_message code);
-        return (`Error 
-                  (`Unknown 
+      | Unix.Unix_error(code, fn, arg) ->
+        return (`Error
+                  (`Unknown
                      (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
                         op (Unix.error_message code) fn arg name offset length)))
-      | e -> 
-        return (`Error 
-                  (`Unknown 
-                     (Printf.sprintf "%s: %s at file %s offset %Ld with length %d" 
+      | e ->
+        return (`Error
+                  (`Unknown
+                     (Printf.sprintf "%s: %s at file %s offset %Ld with length %d"
                         op (Printexc.to_string e) name offset length))))
 
 let rec read x sector_start buffers = match buffers with
@@ -195,9 +194,9 @@ let rec write x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
   | b :: bs ->
     begin match x with
-      | { fd = None } -> 
+      | { fd = None } ->
         return (`Error `Disconnected)
-      | { info = { read_write = false } } -> 
+      | { info = { read_write = false } } ->
         return (`Error `Is_read_only)
       | { fd = Some fd } ->
         let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
@@ -212,9 +211,9 @@ let rec write x sector_start buffers = match buffers with
                ) >>= fun () ->
              return (`Ok ())
           ) >>= function
-        | `Ok () -> 
+        | `Ok () ->
           write x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
-        | `Error x -> 
+        | `Error x ->
           return (`Error x)
     end
 
@@ -228,5 +227,16 @@ let resize t new_size_sectors =
           Lwt_unix.LargeFile.ftruncate fd new_size_bytes
           >>= fun () ->
           t.info <- { t.info with size_sectors = new_size_sectors };
+          return (`Ok ())
+        )
+
+let flush t =
+  match t.fd with
+    | None -> return (`Error `Disconnected)
+    | Some fd ->
+      lwt_wrap_exn t.name "fsync" 0L 0
+        (fun () ->
+          Lwt_unix.fsync fd
+          >>= fun () ->
           return (`Ok ())
         )
