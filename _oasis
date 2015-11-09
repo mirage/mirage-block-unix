@@ -13,7 +13,7 @@ Library mirage_block_unix
   Findlibname:        mirage-block-unix
   Modules:            Block
   BuildDepends:       cstruct, lwt, lwt.unix, mirage-types
-  CSources:           odirect_stubs.c, blkgetsize_stubs.c
+  CSources:           odirect_stubs.c, blkgetsize_stubs.c, lseekhole_stubs.c
 
 Executable test
   Build$:             flag(tests)

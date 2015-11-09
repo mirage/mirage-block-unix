@@ -25,7 +25,10 @@ module Raw = struct
 
   external blkgetsize: Unix.file_descr -> int64 = "stub_blkgetsize"
 
-  external fsync : Unix.file_descr -> unit = "stub_fsync"
+  external lseek_data : Unix.file_descr -> int64 -> int64 = "stub_lseek_data_64"
+
+  external lseek_hole : Unix.file_descr -> int64 -> int64 = "stub_lseek_hole_64"
+
 end
 
 open Lwt
@@ -239,4 +242,34 @@ let flush t =
           Lwt_unix.fsync fd
           >>= fun () ->
           return (`Ok ())
+        )
+
+let seek_mapped t from =
+  match t.fd with
+    | None -> return (`Error `Disconnected)
+    | Some fd ->
+      let offset = Int64.(mul from (of_int t.info.sector_size)) in
+      lwt_wrap_exn t.name "seek_mapped" offset 0
+        (fun () ->
+          Lwt_mutex.with_lock t.m
+            (fun () ->
+              let fd = Lwt_unix.unix_file_descr fd in
+              let offset = Raw.lseek_data fd offset in
+              return (`Ok Int64.(div offset (of_int t.info.sector_size)))
+            )
+        )
+
+let seek_unmapped t from =
+  match t.fd with
+    | None -> return (`Error `Disconnected)
+    | Some fd ->
+      let offset = Int64.(mul from (of_int t.info.sector_size)) in
+      lwt_wrap_exn t.name "seek_unmapped" offset 0
+        (fun () ->
+          Lwt_mutex.with_lock t.m
+            (fun () ->
+              let fd = Lwt_unix.unix_file_descr fd in
+              let offset = Raw.lseek_hole fd offset in
+              return (`Ok Int64.(div offset (of_int t.info.sector_size)))
+            )
         )

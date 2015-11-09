@@ -42,3 +42,12 @@ val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
 val flush : t -> [ `Ok of unit | `Error of error ] io
 (** [flush t] flushes any buffers, if the file has been opened in buffered
     mode *)
+
+val seek_unmapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
+(** [seek_unmapped t start] returns the sector offset of the next guaranteed
+    zero-filled region (typically guaranteed because it is unmapped) *)
+
+val seek_mapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
+(** [seek_mapped t start] returns the sector offset of the next regoin of the
+    device which may have data in it (typically this is the next mapped
+    region) *)
