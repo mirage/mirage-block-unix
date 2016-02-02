@@ -4,5 +4,6 @@ install:
   - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
 dist: trusty
 script: bash -ex .travis-opam.sh && bash -ex travis-coveralls.sh
+sudo: required
 env:
   - OCAML_VERSION=4.02
