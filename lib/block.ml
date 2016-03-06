@@ -82,6 +82,10 @@ module Result = struct
       `Error (`Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
 end
 
+let (>>*=) m f = m >>= function
+  | `Ok x -> f x
+  | `Error x -> Lwt.return (`Error x)
+
 let stat filename fd = Result.wrap_exn "stat" filename Unix.LargeFile.fstat fd
 let blkgetsize filename fd = Result.wrap_exn "BLKGETSIZE" filename Raw.blkgetsize fd
 
@@ -169,6 +173,15 @@ let lwt_wrap_exn t op offset ?buffer f =
   let describe_buffer = function
     | None -> ""
     | Some x -> "with buffer of length " ^ (string_of_int (Cstruct.len x)) in
+  (* Buffer must be a multiple of sectors in length *)
+  ( match buffer with
+    | None -> Lwt.return (`Ok ())
+    | Some b ->
+      let len = Cstruct.len b in
+      if len mod t.info.sector_size <> 0
+      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.name
+      else Lwt.return (`Ok ())
+  ) >>*= fun () ->
   Lwt.catch f
     (function
       | End_of_file ->
