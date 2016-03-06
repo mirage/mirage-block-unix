@@ -39,7 +39,9 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
   CAMLparam3(filename, rw, perm);
   CAMLlocal1(result);
   int fd;
-
+#ifdef _WIN32
+  caml_failwith("O_DIRECT is not supported on Win32");
+#else
   const char *filename_c = strdup(String_val(filename));
 
   enter_blocking_section();
@@ -65,4 +67,5 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
   if (fd == -1) uerror("open", filename);
   if (ret < 0)  uerror("open", filename);
   CAMLreturn(Val_int(fd));
+#endif /* _WIN32 */
 }

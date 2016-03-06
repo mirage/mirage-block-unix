@@ -159,7 +159,7 @@ let find_unused_file () =
   (* Find a filename which doesn't exist *)
   let rec does_not_exist i =
     let name = Printf.sprintf "%s/mirage-block-test.%d.%d"
-      Filename.temp_dir_name (Unix.getpid ()) i in
+      (Filename.get_temp_dir_name ()) (Unix.getpid ()) i in
     if Sys.file_exists name
     then does_not_exist (i + 1)
     else name in
@@ -169,7 +169,12 @@ let with_temp_file f =
   let path = find_unused_file () in
   finally
     (fun () ->
-      ignore_string (run "dd" [ "if=/dev/zero"; "of=" ^ path; "seek=1024"; "bs=1048576"; "count=1"]);
+      let fd = Unix.openfile path [ Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] 0o0644 in
+      finally
+        (fun () ->
+          ignore(Unix.lseek fd 1048575 Unix.SEEK_CUR);
+          ignore(Unix.write fd "\000" 0 1)) (* will write at least 1 *)
+        (fun () -> Unix.close fd);
       f path
     ) (fun () ->
       rm_f path
