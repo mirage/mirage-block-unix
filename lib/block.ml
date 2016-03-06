@@ -62,6 +62,7 @@ type t = {
   m: Lwt_mutex.t;
   name: string;
   mutable info: info;
+  use_fsync: bool;
 }
 
 let id { name } = name
@@ -113,7 +114,14 @@ let remove_prefix prefix x =
 
 let connect name =
   let buffered, name = remove_prefix buffered_prefix name in
-  let openfile = if buffered then Raw.openfile_buffered else Raw.openfile_unbuffered in
+  let is_win32 = Sys.os_type = "Win32" in
+  let openfile, use_fsync = match buffered, is_win32 with
+    | true, _ -> Raw.openfile_buffered, false
+    | false, false -> Raw.openfile_unbuffered, false
+    | false, true ->
+      (* We can't use O_DIRECT or F_NOCACHE on Win32, so for now
+         we will use `fsync` after every write. *)
+      Raw.openfile_buffered, true in
   (* first try read/write and then fall back to read/only *)
   try
     let fd, read_write =
@@ -130,7 +138,7 @@ let connect name =
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
-      return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write } })
+      return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write }; use_fsync })
   with e ->
     Log.err (fun f -> f "connect %s: failed to open file" name);
     return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" name)))
@@ -233,6 +241,8 @@ let rec write x sector_start buffers = match buffers with
                  Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
                  really_write fd b
                ) >>= fun () ->
+             ( if x.use_fsync then Lwt_unix.fsync fd else Lwt.return () )
+             >>= fun () ->
              return (`Ok ())
           ) >>= function
         | `Ok () ->

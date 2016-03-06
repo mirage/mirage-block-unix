@@ -5,7 +5,7 @@ mirage-block-unix
 
 Unix implementation of the Mirage `BLOCK_DEVICE` interface.
 
-This interface exposes raw. unbuffered I/O (via `O_DIRECT`) to files
-and block devices.
+This module provides raw I/O to files and block devices with as little
+caching as possible.
 
 E-mail: <mirageos-devel@lists.xenproject.org>
