@@ -19,6 +19,13 @@ open Block
 open OUnit
 open Utils
 
+let or_failwith = function
+  | `Error (`Unknown msg) -> failwith msg
+  | `Error `Is_read_only -> failwith "Is_read_only"
+  | `Error `Unimplemented -> failwith "Unimplemented"
+  | `Error `Disconnected -> failwith "Disconnected"
+  | `Ok x -> x
+
 let test_enoent () =
   let t =
     let name = find_unused_file () in
@@ -75,6 +82,46 @@ let test_open_block () =
             )
       ) in
   Lwt_main.run t
+
+let test_write_read () =
+  let t =
+    with_temp_file
+      (fun file ->
+        Block.connect file >>= function
+        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+        | `Ok device1 ->
+          Block.get_info device1
+          >>= fun info1 ->
+          let sector = alloc info1.Block.sector_size in
+          let rec write x =
+            if x = 0 then Lwt.return (`Ok ()) else begin
+              Cstruct.memset sector x;
+              Block.write device1 (Int64.of_int x) [ sector ]
+              >>= fun r ->
+              let () = or_failwith r in
+              write (x - 1)
+            end in
+          write 255
+          >>= fun x ->
+          let () = or_failwith x in
+          let sector' = alloc info1.Block.sector_size in
+          let rec read x =
+            if x = 0 then Lwt.return (`Ok ()) else begin
+              Cstruct.memset sector' x;
+              Block.read device1 (Int64.of_int x) [ sector ]
+              >>= fun r ->
+              let () = or_failwith r in
+              if not(Cstruct.equal sector sector')
+              then failwith (Printf.sprintf "test_write_read: sector %d not equal" x);
+              read (x - 1)
+            end in
+          read 255
+          >>= fun x ->
+          let () = or_failwith x in
+          Lwt.return ()
+      ) in
+  Lwt_main.run t
+
 
 let test_eof () =
   let t =
@@ -149,5 +196,6 @@ let _ =
     "test read/write after last sector" >:: test_eof;
     "test resize" >:: test_resize;
     "test flush" >:: test_flush;
+    "test write then read" >:: test_write_read;
   ] in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
