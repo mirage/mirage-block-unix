@@ -162,26 +162,19 @@ let really_read = complete Lwt_bytes.read
 let really_write = complete Lwt_bytes.write
 
 let lwt_wrap_exn t op offset length f =
+  let fatalf fmt = Printf.ksprintf (fun s ->
+    Log.err (fun f -> f "%s" s);
+    return (`Error (`Unknown s))
+    ) fmt in
   Lwt.catch f
     (function
       | End_of_file ->
-        Log.info (fun f -> f "%s: End_of_file at file %s offset %Ld with length %d" op t.name offset length);
-        return (`Error
-                  (`Unknown
-                     (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
-                        op t.name offset length)))
+        fatalf "%s: End_of_file at file %s offset %Ld with length %d" op t.name offset length
       | Unix.Unix_error(code, fn, arg) ->
-        Log.err (fun f -> f "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg t.name offset length);
-        return (`Error
-                  (`Unknown
-                     (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
-                        op (Unix.error_message code) fn arg t.name offset length)))
+        fatalf "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg t.name offset length
       | e ->
-        Log.err (fun f -> f "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) t.name offset length);
-        return (`Error
-                  (`Unknown
-                     (Printf.sprintf "%s: %s at file %s offset %Ld with length %d"
-                        op (Printexc.to_string e) t.name offset length))))
+        fatalf "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) t.name offset length
+    )
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
