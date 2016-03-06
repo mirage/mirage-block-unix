@@ -14,6 +14,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *)
 
+ let src =
+   let src = Logs.Src.create "mirage-block-unix" ~doc:"Mirage BLOCK interface for Unix" in
+   Logs.Src.set_level src (Some Logs.Info);
+   src
+
+ module Log = (val Logs.src_log src : Logs.LOG)
+
 type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type id = string
@@ -86,6 +93,7 @@ let get_file_size filename fd =
   | Unix.S_REG -> `Ok st.Unix.LargeFile.st_size
   | Unix.S_BLK -> blkgetsize filename fd
   | _ ->
+    Log.err (fun f -> f "get_file_size %s: entity is neither a file nor a block device" filename);
     `Error
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
@@ -120,7 +128,8 @@ let connect name =
       let m = Lwt_mutex.create () in
       return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write } })
   with e ->
-    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to oppen file" name)))
+    Log.err (fun f -> f "connect %s: failed to open file" name);
+    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" name)))
 
 let disconnect t = match t.fd with
   | Some fd ->
@@ -156,16 +165,19 @@ let lwt_wrap_exn name op offset length f =
   Lwt.catch f
     (function
       | End_of_file ->
+        Log.info (fun f -> f "%s: End_of_file at file %s offset %Ld with length %d" op name offset length);
         return (`Error
                   (`Unknown
                      (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
                         op name offset length)))
       | Unix.Unix_error(code, fn, arg) ->
+        Log.err (fun f -> f "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg name offset length);
         return (`Error
                   (`Unknown
                      (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
                         op (Unix.error_message code) fn arg name offset length)))
       | e ->
+        Log.err (fun f -> f "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) name offset length);
         return (`Error
                   (`Unknown
                      (Printf.sprintf "%s: %s at file %s offset %Ld with length %d"
