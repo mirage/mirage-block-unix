@@ -14,6 +14,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *)
 
+ let src =
+   let src = Logs.Src.create "mirage-block-unix" ~doc:"Mirage BLOCK interface for Unix" in
+   Logs.Src.set_level src (Some Logs.Info);
+   src
+
+ module Log = (val Logs.src_log src : Logs.LOG)
+
 type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type id = string
@@ -75,6 +82,10 @@ module Result = struct
       `Error (`Unknown (Printf.sprintf "%s %s: %s" f' x' (Printexc.to_string e)))
 end
 
+let (>>*=) m f = m >>= function
+  | `Ok x -> f x
+  | `Error x -> Lwt.return (`Error x)
+
 let stat filename fd = Result.wrap_exn "stat" filename Unix.LargeFile.fstat fd
 let blkgetsize filename fd = Result.wrap_exn "BLKGETSIZE" filename Raw.blkgetsize fd
 
@@ -86,6 +97,7 @@ let get_file_size filename fd =
   | Unix.S_REG -> `Ok st.Unix.LargeFile.st_size
   | Unix.S_BLK -> blkgetsize filename fd
   | _ ->
+    Log.err (fun f -> f "get_file_size %s: entity is neither a file nor a block device" filename);
     `Error
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
@@ -120,7 +132,8 @@ let connect name =
       let m = Lwt_mutex.create () in
       return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write } })
   with e ->
-    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to oppen file" name)))
+    Log.err (fun f -> f "connect %s: failed to open file" name);
+    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" name)))
 
 let disconnect t = match t.fd with
   | Some fd ->
@@ -152,24 +165,32 @@ let complete op fd buffer =
 let really_read = complete Lwt_bytes.read
 let really_write = complete Lwt_bytes.write
 
-let lwt_wrap_exn name op offset length f =
+let lwt_wrap_exn t op offset ?buffer f =
+  let fatalf fmt = Printf.ksprintf (fun s ->
+    Log.err (fun f -> f "%s" s);
+    return (`Error (`Unknown s))
+    ) fmt in
+  let describe_buffer = function
+    | None -> ""
+    | Some x -> "with buffer of length " ^ (string_of_int (Cstruct.len x)) in
+  (* Buffer must be a multiple of sectors in length *)
+  ( match buffer with
+    | None -> Lwt.return (`Ok ())
+    | Some b ->
+      let len = Cstruct.len b in
+      if len mod t.info.sector_size <> 0
+      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.name
+      else Lwt.return (`Ok ())
+  ) >>*= fun () ->
   Lwt.catch f
     (function
       | End_of_file ->
-        return (`Error
-                  (`Unknown
-                     (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
-                        op name offset length)))
+        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.name offset (describe_buffer buffer)
       | Unix.Unix_error(code, fn, arg) ->
-        return (`Error
-                  (`Unknown
-                     (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
-                        op (Unix.error_message code) fn arg name offset length)))
+        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.name offset (describe_buffer buffer)
       | e ->
-        return (`Error
-                  (`Unknown
-                     (Printf.sprintf "%s: %s at file %s offset %Ld with length %d"
-                        op (Printexc.to_string e) name offset length))))
+        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.name offset (describe_buffer buffer)
+    )
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
@@ -178,7 +199,7 @@ let rec read x sector_start buffers = match buffers with
       | None -> return (`Error `Disconnected)
       | Some fd ->
         let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
-        lwt_wrap_exn x.name "read" offset (Cstruct.len b)
+        lwt_wrap_exn x "read" offset ~buffer:b
           (fun () ->
              if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
                 x.info.size_sectors then fail End_of_file else
@@ -203,7 +224,7 @@ let rec write x sector_start buffers = match buffers with
         return (`Error `Is_read_only)
       | { fd = Some fd } ->
         let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
-        lwt_wrap_exn x.name "write" offset (Cstruct.len b)
+        lwt_wrap_exn x "write" offset ~buffer:b
           (fun () ->
              if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
                 x.info.size_sectors then fail End_of_file else
@@ -225,7 +246,7 @@ let resize t new_size_sectors =
   match t.fd with
     | None -> return (`Error `Disconnected)
     | Some fd ->
-      lwt_wrap_exn t.name "ftruncate" new_size_bytes 0
+      lwt_wrap_exn t "ftruncate" new_size_bytes
         (fun () ->
           Lwt_unix.LargeFile.ftruncate fd new_size_bytes
           >>= fun () ->
@@ -237,7 +258,7 @@ let flush t =
   match t.fd with
     | None -> return (`Error `Disconnected)
     | Some fd ->
-      lwt_wrap_exn t.name "fsync" 0L 0
+      lwt_wrap_exn t "fsync" 0L
         (fun () ->
           Lwt_unix.fsync fd
           >>= fun () ->
@@ -249,7 +270,7 @@ let seek_mapped t from =
     | None -> return (`Error `Disconnected)
     | Some fd ->
       let offset = Int64.(mul from (of_int t.info.sector_size)) in
-      lwt_wrap_exn t.name "seek_mapped" offset 0
+      lwt_wrap_exn t "seek_mapped" offset
         (fun () ->
           Lwt_mutex.with_lock t.m
             (fun () ->
@@ -264,7 +285,7 @@ let seek_unmapped t from =
     | None -> return (`Error `Disconnected)
     | Some fd ->
       let offset = Int64.(mul from (of_int t.info.sector_size)) in
-      lwt_wrap_exn t.name "seek_unmapped" offset 0
+      lwt_wrap_exn t "seek_unmapped" offset
         (fun () ->
           Lwt_mutex.with_lock t.m
             (fun () ->
