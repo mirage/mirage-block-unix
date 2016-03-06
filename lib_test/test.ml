@@ -202,17 +202,22 @@ let test_flush () =
       ) in
   Lwt_main.run t
 
+let not_implemented_on_windows = [
+  "test resize" >:: test_resize;
+]
+
+let tests = [
+  "test ENOENT" >:: test_enoent;
+  "test open read" >:: test_open_read;
+  (* Doesn't work on travis
+  "test opening a block device" >:: test_open_block;
+  *)
+  "test read/write after last sector" >:: test_eof;
+  "test flush" >:: test_flush;
+  "test write then read" >:: test_write_read;
+  "test that writes fail if the buffer has a bad length" >:: test_buffer_wrong_length;
+] @ (if Sys.os_type <> "Win32" then not_implemented_on_windows else [])
+
 let _ =
-  let suite = "block" >::: [
-    "test ENOENT" >:: test_enoent;
-    "test open read" >:: test_open_read;
-    (* Doesn't work on travis
-    "test opening a block device" >:: test_open_block;
-    *)
-    "test read/write after last sector" >:: test_eof;
-    "test resize" >:: test_resize;
-    "test flush" >:: test_flush;
-    "test write then read" >:: test_write_read;
-    "test that writes fail if the buffer has a bad length" >:: test_buffer_wrong_length;
-  ] in
+  let suite = "block" >::: tests in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
