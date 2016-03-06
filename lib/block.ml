@@ -21,6 +21,8 @@
 
  module Log = (val Logs.src_log src : Logs.LOG)
 
+let is_win32 = Sys.os_type = "Win32"
+
 type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type id = string
@@ -114,7 +116,6 @@ let remove_prefix prefix x =
 
 let connect name =
   let buffered, name = remove_prefix buffered_prefix name in
-  let is_win32 = Sys.os_type = "Win32" in
   let openfile, use_fsync = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false

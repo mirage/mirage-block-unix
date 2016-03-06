@@ -16,7 +16,9 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef _WIN32
 #include <sys/ioctl.h>
+#endif
 
 #include <fcntl.h>
 #include <string.h>
@@ -70,6 +72,13 @@ int blkgetsize(int fd, uint64_t *psize)
 {
   int ret = ioctl(fd, DIOCGMEDIASIZE, psize);
   return ret;
+}
+
+#elif _WIN32
+
+int blkgetsize(int fd, uint64_t *psize)
+{
+  return 0; /* Will never be called because there are no block device file */
 }
 
 #else
