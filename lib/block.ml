@@ -161,27 +161,27 @@ let complete op fd buffer =
 let really_read = complete Lwt_bytes.read
 let really_write = complete Lwt_bytes.write
 
-let lwt_wrap_exn name op offset length f =
+let lwt_wrap_exn t op offset length f =
   Lwt.catch f
     (function
       | End_of_file ->
-        Log.info (fun f -> f "%s: End_of_file at file %s offset %Ld with length %d" op name offset length);
+        Log.info (fun f -> f "%s: End_of_file at file %s offset %Ld with length %d" op t.name offset length);
         return (`Error
                   (`Unknown
                      (Printf.sprintf "%s: End_of_file at file %s offset %Ld with length %d"
-                        op name offset length)))
+                        op t.name offset length)))
       | Unix.Unix_error(code, fn, arg) ->
-        Log.err (fun f -> f "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg name offset length);
+        Log.err (fun f -> f "%s: %s in %s '%s' at file %s offset %Ld with length %d" op (Unix.error_message code) fn arg t.name offset length);
         return (`Error
                   (`Unknown
                      (Printf.sprintf "%s: %s in %s '%s' at file %s offset %Ld with length %d"
-                        op (Unix.error_message code) fn arg name offset length)))
+                        op (Unix.error_message code) fn arg t.name offset length)))
       | e ->
-        Log.err (fun f -> f "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) name offset length);
+        Log.err (fun f -> f "%s: %s at file %s offset %Ld with length %d" op (Printexc.to_string e) t.name offset length);
         return (`Error
                   (`Unknown
                      (Printf.sprintf "%s: %s at file %s offset %Ld with length %d"
-                        op (Printexc.to_string e) name offset length))))
+                        op (Printexc.to_string e) t.name offset length))))
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())
@@ -190,7 +190,7 @@ let rec read x sector_start buffers = match buffers with
       | None -> return (`Error `Disconnected)
       | Some fd ->
         let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
-        lwt_wrap_exn x.name "read" offset (Cstruct.len b)
+        lwt_wrap_exn x "read" offset (Cstruct.len b)
           (fun () ->
              if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
                 x.info.size_sectors then fail End_of_file else
@@ -215,7 +215,7 @@ let rec write x sector_start buffers = match buffers with
         return (`Error `Is_read_only)
       | { fd = Some fd } ->
         let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
-        lwt_wrap_exn x.name "write" offset (Cstruct.len b)
+        lwt_wrap_exn x "write" offset (Cstruct.len b)
           (fun () ->
              if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
                 x.info.size_sectors then fail End_of_file else
@@ -237,7 +237,7 @@ let resize t new_size_sectors =
   match t.fd with
     | None -> return (`Error `Disconnected)
     | Some fd ->
-      lwt_wrap_exn t.name "ftruncate" new_size_bytes 0
+      lwt_wrap_exn t "ftruncate" new_size_bytes 0
         (fun () ->
           Lwt_unix.LargeFile.ftruncate fd new_size_bytes
           >>= fun () ->
@@ -249,7 +249,7 @@ let flush t =
   match t.fd with
     | None -> return (`Error `Disconnected)
     | Some fd ->
-      lwt_wrap_exn t.name "fsync" 0L 0
+      lwt_wrap_exn t "fsync" 0L 0
         (fun () ->
           Lwt_unix.fsync fd
           >>= fun () ->
@@ -261,7 +261,7 @@ let seek_mapped t from =
     | None -> return (`Error `Disconnected)
     | Some fd ->
       let offset = Int64.(mul from (of_int t.info.sector_size)) in
-      lwt_wrap_exn t.name "seek_mapped" offset 0
+      lwt_wrap_exn t "seek_mapped" offset 0
         (fun () ->
           Lwt_mutex.with_lock t.m
             (fun () ->
@@ -276,7 +276,7 @@ let seek_unmapped t from =
     | None -> return (`Error `Disconnected)
     | Some fd ->
       let offset = Int64.(mul from (of_int t.info.sector_size)) in
-      lwt_wrap_exn t.name "seek_unmapped" offset 0
+      lwt_wrap_exn t "seek_unmapped" offset 0
         (fun () ->
           Lwt_mutex.with_lock t.m
             (fun () ->
