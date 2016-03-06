@@ -1,3 +1,8 @@
+2.2.0 (3-Mar-2016)
+* Add basic Win32 support, tested via appveyor
+* Use logs library
+* Check buffers have proper lengths in `read` and `write`
+
 2.1.0 (9-Nov-2015)
 * Add `Block.resize` to resize file-backed devices
 * Unit tests now work on OSX
