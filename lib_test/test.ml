@@ -122,6 +122,22 @@ let test_write_read () =
       ) in
   Lwt_main.run t
 
+let test_buffer_wrong_length () =
+  let t =
+    with_temp_file
+      (fun file ->
+        Block.connect file >>= function
+        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+        | `Ok device1 ->
+          Block.get_info device1
+          >>= fun info1 ->
+          let sector = alloc info1.Block.sector_size in
+          Block.write device1 0L [ Cstruct.shift sector 1 ]
+          >>= function
+          | `Error _ -> Lwt.return ()
+          | `Ok () -> failwith "a write with a bad length succeeded"
+      ) in
+  Lwt_main.run t
 
 let test_eof () =
   let t =
@@ -197,5 +213,6 @@ let _ =
     "test resize" >:: test_resize;
     "test flush" >:: test_flush;
     "test write then read" >:: test_write_read;
+    "test that writes fail if the buffer has a bad length" >:: test_buffer_wrong_length;
   ] in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
