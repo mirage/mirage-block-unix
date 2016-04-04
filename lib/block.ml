@@ -210,12 +210,17 @@ let rec read x sector_start buffers = match buffers with
         let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
         lwt_wrap_exn x "read" offset ~buffer:b
           (fun () ->
-             if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
-                x.info.size_sectors then fail End_of_file else
              Lwt_mutex.with_lock x.m
                (fun () ->
-                 Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-                 really_read fd b
+                 let b_sectors = (Cstruct.len b) / x.info.sector_size in
+                 if Int64.(add sector_start (of_int b_sectors) > x.info.size_sectors) then begin
+                   Log.err (fun f -> f "read beyond end of file: sector_start (%Ld) + b (%d) > size_sectors (%Ld)"
+                     sector_start b_sectors x.info.size_sectors);
+                   fail End_of_file
+                 end else begin
+                   Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+                   really_read fd b
+                 end
                ) >>= fun () ->
              return (`Ok ())
           ) >>= function
@@ -235,12 +240,17 @@ let rec write x sector_start buffers = match buffers with
         let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
         lwt_wrap_exn x "write" offset ~buffer:b
           (fun () ->
-             if Int64.(add sector_start (of_int ((Cstruct.len b) / x.info.sector_size))) >
-                x.info.size_sectors then fail End_of_file else
              Lwt_mutex.with_lock x.m
                (fun () ->
-                 Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-                 really_write fd b
+                 let b_sectors = (Cstruct.len b) / x.info.sector_size in
+                 if Int64.(add sector_start (of_int b_sectors) > x.info.size_sectors) then begin
+                   Log.err (fun f -> f "write beyond end of file: sector_start (%Ld) + b (%d) > size_sectors (%Ld)"
+                     sector_start b_sectors x.info.size_sectors);
+                   fail End_of_file
+                 end else begin
+                   Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
+                   really_write fd b
+                 end
                ) >>= fun () ->
              ( if x.use_fsync then Lwt_unix.fsync fd else Lwt.return () )
              >>= fun () ->
