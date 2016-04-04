@@ -32,7 +32,7 @@ let test_enoent () =
     Block.connect name >>= function
     | `Ok _ -> failwith (Printf.sprintf "Block.connect %s should have failed" name)
     | `Error _ -> return () in
-    Lwt_main.run t
+  Lwt_main.run t
 
 let test_open_read () =
   let t =
@@ -53,33 +53,33 @@ let test_open_read () =
       Block.read device Int64.(sub (div size 512L) 1L) [ sector' ] >>= function
       | `Error _ -> failwith (Printf.sprintf "Block.read %s failed" name)
       | `Ok () -> begin
-        assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal sector sector';
-        return ()
-      end in
+          assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal sector sector';
+          return ()
+        end in
   Lwt_main.run t
 
 let test_open_block () =
   let t =
     with_temp_file
       (fun file ->
-        Block.connect file >>= function
-        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
-        | `Ok device1 ->
-          Block.get_info device1
-          >>= fun info1 ->
-          let size1 = Int64.(mul info1.Block.size_sectors (of_int info1.Block.sector_size)) in
-          with_temp_volume file
-            (fun volume ->
-               Block.connect volume >>= function
-               | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" volume)
-               | `Ok device2 ->
+         Block.connect file >>= function
+         | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+         | `Ok device1 ->
+           Block.get_info device1
+           >>= fun info1 ->
+           let size1 = Int64.(mul info1.Block.size_sectors (of_int info1.Block.sector_size)) in
+           with_temp_volume file
+             (fun volume ->
+                Block.connect volume >>= function
+                | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" volume)
+                | `Ok device2 ->
                   Block.get_info device2
                   >>= fun info2 ->
                   let size2 = Int64.(mul info2.Block.size_sectors (of_int info2.Block.sector_size)) in
                   (* The size of the file and the block device should be the same *)
                   assert_equal ~printer:Int64.to_string size1 size2;
                   Block.disconnect device2
-            )
+             )
       ) in
   Lwt_main.run t
 
@@ -87,38 +87,38 @@ let test_write_read () =
   let t =
     with_temp_file
       (fun file ->
-        Block.connect file >>= function
-        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
-        | `Ok device1 ->
-          Block.get_info device1
-          >>= fun info1 ->
-          let sector = alloc info1.Block.sector_size in
-          let rec write x =
-            if x = 0 then Lwt.return (`Ok ()) else begin
-              Cstruct.memset sector x;
-              Block.write device1 (Int64.of_int x) [ sector ]
-              >>= fun r ->
-              let () = or_failwith r in
-              write (x - 1)
-            end in
-          write 255
-          >>= fun x ->
-          let () = or_failwith x in
-          let sector' = alloc info1.Block.sector_size in
-          let rec read x =
-            if x = 0 then Lwt.return (`Ok ()) else begin
-              Cstruct.memset sector' x;
-              Block.read device1 (Int64.of_int x) [ sector ]
-              >>= fun r ->
-              let () = or_failwith r in
-              if not(Cstruct.equal sector sector')
-              then failwith (Printf.sprintf "test_write_read: sector %d not equal" x);
-              read (x - 1)
-            end in
-          read 255
-          >>= fun x ->
-          let () = or_failwith x in
-          Lwt.return ()
+         Block.connect file >>= function
+         | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+         | `Ok device1 ->
+           Block.get_info device1
+           >>= fun info1 ->
+           let sector = alloc info1.Block.sector_size in
+           let rec write x =
+             if x = 0 then Lwt.return (`Ok ()) else begin
+               Cstruct.memset sector x;
+               Block.write device1 (Int64.of_int x) [ sector ]
+               >>= fun r ->
+               let () = or_failwith r in
+               write (x - 1)
+             end in
+           write 255
+           >>= fun x ->
+           let () = or_failwith x in
+           let sector' = alloc info1.Block.sector_size in
+           let rec read x =
+             if x = 0 then Lwt.return (`Ok ()) else begin
+               Cstruct.memset sector' x;
+               Block.read device1 (Int64.of_int x) [ sector ]
+               >>= fun r ->
+               let () = or_failwith r in
+               if not(Cstruct.equal sector sector')
+               then failwith (Printf.sprintf "test_write_read: sector %d not equal" x);
+               read (x - 1)
+             end in
+           read 255
+           >>= fun x ->
+           let () = or_failwith x in
+           Lwt.return ()
       ) in
   Lwt_main.run t
 
@@ -126,16 +126,16 @@ let test_buffer_wrong_length () =
   let t =
     with_temp_file
       (fun file ->
-        Block.connect file >>= function
-        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
-        | `Ok device1 ->
-          Block.get_info device1
-          >>= fun info1 ->
-          let sector = alloc info1.Block.sector_size in
-          Block.write device1 0L [ Cstruct.shift sector 1 ]
-          >>= function
-          | `Error _ -> Lwt.return ()
-          | `Ok () -> failwith "a write with a bad length succeeded"
+         Block.connect file >>= function
+         | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+         | `Ok device1 ->
+           Block.get_info device1
+           >>= fun info1 ->
+           let sector = alloc info1.Block.sector_size in
+           Block.write device1 0L [ Cstruct.shift sector 1 ]
+           >>= function
+           | `Error _ -> Lwt.return ()
+           | `Ok () -> failwith "a write with a bad length succeeded"
       ) in
   Lwt_main.run t
 
@@ -192,13 +192,13 @@ let test_flush () =
   let t =
     with_temp_file
       (fun file ->
-        Block.connect file >>= function
-        | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
-        | `Ok device1 ->
-          Block.flush device1 >>= function
+         Block.connect file >>= function
+         | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" file)
+         | `Ok device1 ->
+           Block.flush device1 >>= function
            | `Error _ -> failwith (Printf.sprintf "Block.flush %s failed" file)
            | `Ok () ->
-            Block.disconnect device1
+             Block.disconnect device1
       ) in
   Lwt_main.run t
 
@@ -210,7 +210,7 @@ let tests = [
   "test ENOENT" >:: test_enoent;
   "test open read" >:: test_open_read;
   (* Doesn't work on travis
-  "test opening a block device" >:: test_open_block;
+     "test opening a block device" >:: test_open_block;
   *)
   "test read/write after last sector" >:: test_eof;
   "test flush" >:: test_flush;

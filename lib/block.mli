@@ -1,5 +1,6 @@
 (*
  * Copyright (C) 2013 Citrix Systems Inc
+ * Copyright (C) 2016 Docker Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,8 +18,8 @@
 (** Block device on top of Lwt_unix *)
 
 include V1.BLOCK
-with type 'a io = 'a Lwt.t
-and type     page_aligned_buffer = Cstruct.t
+  with type 'a io = 'a Lwt.t
+   and type     page_aligned_buffer = Cstruct.t
 
 (** {0} low-level convenience functions *)
 

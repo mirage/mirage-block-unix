@@ -19,10 +19,10 @@ let ignore_string (_: string) = ()
 let log fmt =
   Printf.ksprintf
     (fun s ->
-      output_string stderr s;
-      output_string stderr "\n";
-      flush stderr;
-      ) fmt
+       output_string stderr s;
+       output_string stderr "\n";
+       flush stderr;
+    ) fmt
 let debug fmt = log fmt
 let warn fmt = debug fmt
 let error fmt = debug fmt
@@ -44,7 +44,7 @@ let rm_f x =
   try
     Unix.unlink x;
     debug "rm %s" x
-   with _ ->
+  with _ ->
     debug "%s already deleted" x;
     ()
 
@@ -64,13 +64,13 @@ let canonicalise x =
     (* Search the PATH for the executable *)
     let paths = split [] (Sys.getenv "PATH") in
     let first_hit = List.fold_left (fun found path -> match found with
-      | Some hit -> found
-      | None ->
-        let possibility = Filename.concat path x in
-        if Sys.file_exists possibility
-        then Some possibility
-        else None
-    ) None paths in
+        | Some hit -> found
+        | None ->
+          let possibility = Filename.concat path x in
+          if Sys.file_exists possibility
+          then Some possibility
+          else None
+      ) None paths in
     match first_hit with
     | None ->
       warn "Failed to find %s on $PATH ( = %s)" x (Sys.getenv "PATH");
@@ -131,11 +131,11 @@ let run ?(env= [| |]) ?stdin cmd args =
 
     (* pump the input to stdin while the output is streaming to the unlinked files *)
     begin match stdin with
-    | None -> ()
-    | Some txt ->
-      let n = Unix.write stdin_writable txt 0 (String.length txt) in
-      if n <> (String.length txt)
-      then failwith (Printf.sprintf "short write to process stdin: only wrote %d bytes" n);
+      | None -> ()
+      | Some txt ->
+        let n = Unix.write stdin_writable txt 0 (String.length txt) in
+        if n <> (String.length txt)
+        then failwith (Printf.sprintf "short write to process stdin: only wrote %d bytes" n);
     end;
     close stdin_writable;
     let _, status = waitpid pid in
@@ -159,7 +159,7 @@ let find_unused_file () =
   (* Find a filename which doesn't exist *)
   let rec does_not_exist i =
     let name = Printf.sprintf "%s/mirage-block-test.%d.%d"
-      (Filename.get_temp_dir_name ()) (Unix.getpid ()) i in
+        (Filename.get_temp_dir_name ()) (Unix.getpid ()) i in
     if Sys.file_exists name
     then does_not_exist (i + 1)
     else name in
@@ -169,31 +169,31 @@ let with_temp_file f =
   let path = find_unused_file () in
   finally
     (fun () ->
-      let fd = Unix.openfile path [ Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] 0o0644 in
-      finally
-        (fun () ->
-          ignore(Unix.lseek fd 1048575 Unix.SEEK_CUR);
-          ignore(Unix.write fd "\000" 0 1)) (* will write at least 1 *)
-        (fun () -> Unix.close fd);
-      f path
+       let fd = Unix.openfile path [ Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] 0o0644 in
+       finally
+         (fun () ->
+            ignore(Unix.lseek fd 1048575 Unix.SEEK_CUR);
+            ignore(Unix.write fd "\000" 0 1)) (* will write at least 1 *)
+         (fun () -> Unix.close fd);
+       f path
     ) (fun () ->
-      rm_f path
-    )
+        rm_f path
+      )
 
 let with_hdiutil path f =
   let dev = String.trim (run "hdiutil" [ "attach"; "-imagekey"; "diskimage-class=CRawDiskImage"; "-nomount"; path ]) in
   finally
     (fun () -> f dev)
     (fun () ->
-      let rec loop = function
-        | 0 -> failwith (Printf.sprintf "hdiutil detach %s keeps failing" dev)
-        | n ->
-          try
-            ignore_string (run "hdiutil" [ "detach"; dev ])
-          with _ ->
-            Unix.sleep 1;
-            loop (n - 1) in
-      loop 5
+       let rec loop = function
+         | 0 -> failwith (Printf.sprintf "hdiutil detach %s keeps failing" dev)
+         | n ->
+           try
+             ignore_string (run "hdiutil" [ "detach"; dev ])
+           with _ ->
+             Unix.sleep 1;
+             loop (n - 1) in
+       loop 5
     )
 
 let with_losetup path f =
@@ -211,7 +211,7 @@ let with_losetup path f =
   finally
     (fun () -> f dev)
     (fun () ->
-      ignore_string (run "sudo" [ "losetup"; "-d"; dev ])
+       ignore_string (run "sudo" [ "losetup"; "-d"; dev ])
     )
 
 let with_temp_volume path f =
@@ -231,5 +231,5 @@ let cstruct_equal a b =
       done;
       true
     with _ -> false in
-      (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
+  (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
 
