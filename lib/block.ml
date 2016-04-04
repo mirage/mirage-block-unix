@@ -261,10 +261,13 @@ let resize t new_size_sectors =
       then return (`Error `Unimplemented)
       else lwt_wrap_exn t "ftruncate" new_size_bytes
         (fun () ->
-          Lwt_unix.LargeFile.ftruncate fd new_size_bytes
-          >>= fun () ->
-          t.info <- { t.info with size_sectors = new_size_sectors };
-          return (`Ok ())
+          Lwt_mutex.with_lock t.m
+            (fun () ->
+              Lwt_unix.LargeFile.ftruncate fd new_size_bytes
+              >>= fun () ->
+              t.info <- { t.info with size_sectors = new_size_sectors };
+              return (`Ok ())
+            )
         )
 
 let flush t =
