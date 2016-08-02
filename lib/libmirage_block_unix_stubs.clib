@@ -1,6 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: b668f9216e9c571614f025452abff2ec)
+# DO NOT EDIT (digest: 51b18f9c3d31dfc97ba94ea12beaa69f)
 odirect_stubs.o
 blkgetsize_stubs.o
 lseekhole_stubs.o
+flush_stubs.o
 # OASIS_STOP
