@@ -1,3 +1,10 @@
+2.3.0 (2-Aug-2016)
+* use fcntl(F_FULLFSYNC) on OSX rather than plain fsync
+* add linux-headers depext for alpine
+* hold the mutex around `ftruncate` while updating `size_sectors`
+* hold the mutex around bounds checks
+* require cstruct >= 1.3.0
+
 2.2.0 (3-Mar-2016)
 * Add basic Win32 support, tested via appveyor
 * Use logs library
