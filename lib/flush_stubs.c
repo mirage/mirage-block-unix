@@ -20,6 +20,17 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef WIN32
+#include <winsock2.h>
+#include <wtypes.h>
+#include <winbase.h>
+#include <tchar.h>
+#else
+#define HANDLE int
+#define DWORD int
+#define Handle_val(x) Int_val(x)
+#endif
+
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/fail.h>
@@ -32,21 +43,27 @@
 
 struct job_flush {
   struct lwt_unix_job job;
-  int fd;
-  int errno_copy;
+  HANDLE fd;
+  DWORD errno_copy;
 };
 
 static void worker_flush(struct job_flush *job)
 {
   int result = 0;
-#if defined(__APPLE__)
-  result = fcntl(job->fd, F_FULLFSYNC);
-#else
-  result = fsync(job->fd);
-#endif
-  if (result == -1) {
-    job->errno_copy = errno;
+#ifdef WIN32
+  if (!FlushFileBuffers(job->fd)) {
+    job->errno_copy = GetLastError();
   }
+#else
+  #if defined(__APPLE__)
+    result = fcntl(job->fd, F_FULLFSYNC);
+  #else
+    result = fsync(job->fd);
+  #endif
+    if (result == -1) {
+      job->errno_copy = errno;
+    }
+#endif
 }
 
 static value result_flush(struct job_flush *job)
@@ -55,10 +72,15 @@ static value result_flush(struct job_flush *job)
   int errno_copy = job->errno_copy;
   lwt_unix_free_job(&job->job);
   if (errno_copy != 0) {
-#if defined(__APPLE__)
-    unix_error(errno_copy, "fcntl", Nothing);
+#ifdef WIN32
+  win32_maperr(errno_copy);
+  unix_error(errno_copy, "FlushFileBuffers", Nothing);
 #else
-    unix_error(errno_copy, "fsync", Nothing);
+  #if defined(__APPLE__)
+      unix_error(errno_copy, "fcntl", Nothing);
+  #else
+      unix_error(errno_copy, "fsync", Nothing);
+  #endif
 #endif
   }
   CAMLreturn(Val_unit);
@@ -69,7 +91,7 @@ value mirage_block_unix_flush_job(value handle)
 {
   CAMLparam1(handle);
   LWT_UNIX_INIT_JOB(job, flush, 0);
-  job->fd = Int_val(handle);
+  job->fd = (HANDLE)Handle_val(handle);
   job->errno_copy = 0;
   CAMLreturn(lwt_unix_alloc_job(&(job->job)));
 }
