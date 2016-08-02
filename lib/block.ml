@@ -264,13 +264,15 @@ let resize t new_size_sectors =
              )
         )
 
+external flush_job: Unix.file_descr -> unit Lwt_unix.job = "mirage_block_unix_flush_job"
+
 let flush t =
   match t.fd with
   | None -> return (`Error `Disconnected)
   | Some fd ->
     lwt_wrap_exn t "fsync" 0L
       (fun () ->
-         Lwt_unix.fsync fd
+         Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd))
          >>= fun () ->
          return (`Ok ())
       )
