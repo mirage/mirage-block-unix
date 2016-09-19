@@ -202,6 +202,21 @@ let test_flush () =
       ) in
   Lwt_main.run t
 
+let test_connect_uri query buffered sync () =
+  let t =
+    with_temp_file
+      (fun file ->
+         let uri = Uri.make ~scheme:"file" ~path:file ~query () in
+         Block.connect_uri uri >>= function
+         | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" (Uri.to_string uri))
+         | `Ok device1 ->
+           let config = Block.get_config device1 in
+           assert_equal ~printer:string_of_bool buffered config.Block.buffered;
+           assert_equal ~printer:string_of_bool sync config.Block.sync;
+           Block.disconnect device1
+      ) in
+  Lwt_main.run t
+
 let not_implemented_on_windows = [
   "test resize" >:: test_resize;
 ]
@@ -214,6 +229,9 @@ let tests = [
   *)
   "test read/write after last sector" >:: test_eof;
   "test flush" >:: test_flush;
+  "test connect_uri" >:: (test_connect_uri [] false false);
+  "test connect_uri buffered=1" >:: (test_connect_uri [ "buffered", ["1"] ] true false);
+  "test connect_uri buffered=1&sync=1" >:: (test_connect_uri [ "buffered", ["1"]; "sync", ["1"]] true true);
   "test write then read" >:: test_write_read;
   "test that writes fail if the buffer has a bad length" >:: test_buffer_wrong_length;
 ] @ (if Sys.os_type <> "Win32" then not_implemented_on_windows else [])
