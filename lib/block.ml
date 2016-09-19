@@ -65,7 +65,8 @@ type t = {
   m: Lwt_mutex.t;
   name: string;
   mutable info: info;
-  use_fsync: bool;
+  use_fsync_after_write: bool;
+  use_fsync_on_flush: bool;
 }
 
 let id { name } = name
@@ -106,18 +107,8 @@ let get_file_size filename fd =
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
-(* prefix which signals we want to use buffered I/O *)
-let buffered_prefix = "buffered:"
-
-let remove_prefix prefix x =
-  let prefix' = String.length prefix and x' = String.length x in
-  if x' >= prefix' && (String.sub x 0 prefix' = prefix)
-  then true, String.sub x prefix' (x' - prefix')
-  else false, x
-
-let connect name =
-  let buffered, name = remove_prefix buffered_prefix name in
-  let openfile, use_fsync = match buffered, is_win32 with
+let connect_common ~buffered ~sync name =
+  let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
     | false, true ->
@@ -140,10 +131,32 @@ let connect name =
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
-      return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write }; use_fsync })
+      let use_fsync_on_flush = sync in
+      return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write };
+        use_fsync_after_write; use_fsync_on_flush })
   with e ->
     Log.err (fun f -> f "connect %s: failed to open file" name);
     return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" name)))
+
+(* prefix which signals we want to use buffered I/O *)
+let buffered_prefix = "buffered:"
+
+let remove_prefix prefix x =
+  let prefix' = String.length prefix and x' = String.length x in
+  if x' >= prefix' && (String.sub x 0 prefix' = prefix)
+  then true, String.sub x prefix' (x' - prefix')
+  else false, x
+
+let connect name =
+  let buffered, name = remove_prefix buffered_prefix name in
+  connect_common ~buffered ~sync:false name
+
+let connect_uri uri =
+  let name = Uri.path uri in
+  let params = Uri.query uri in
+  let buffered = try List.assoc "buffered" params = [ "1" ] with Not_found -> false in
+  let sync     = try List.assoc "sync"     params = [ "1" ] with Not_found -> false in
+  connect_common ~buffered ~sync name
 
 let disconnect t = match t.fd with
   | Some fd ->
@@ -236,7 +249,7 @@ let rec write x sector_start buffers = match buffers with
                     really_write fd b
                   end
                ) >>= fun () ->
-             ( if x.use_fsync then Lwt_unix.fsync fd else Lwt.return () )
+             ( if x.use_fsync_after_write then Lwt_unix.fsync fd else Lwt.return () )
              >>= fun () ->
              return (`Ok ())
           ) >>= function
@@ -272,7 +285,9 @@ let flush t =
   | Some fd ->
     lwt_wrap_exn t "fsync" 0L
       (fun () ->
-         Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd))
+         ( if t.use_fsync_on_flush
+           then Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd))
+           else Lwt.return_unit )
          >>= fun () ->
          return (`Ok ())
       )

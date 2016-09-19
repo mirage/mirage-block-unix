@@ -12,7 +12,7 @@ Library mirage_block_unix
   Path:               lib
   Findlibname:        mirage-block-unix
   Modules:            Block
-  BuildDepends:       cstruct (>= 1.3.0), cstruct.lwt, lwt, lwt.unix, mirage-types, logs
+  BuildDepends:       cstruct (>= 1.3.0), cstruct.lwt, lwt, lwt.unix, mirage-types, logs, uri
   CSources:           odirect_stubs.c, blkgetsize_stubs.c, lseekhole_stubs.c, flush_stubs.c
   CCOpt:              -I $(pkg_lwt)
 

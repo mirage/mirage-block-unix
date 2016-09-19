@@ -34,6 +34,14 @@ val blkgetsize: string -> Unix.file_descr -> [ `Ok of int64 | `Error of error ]
 
 val connect : string -> [`Ok of t | `Error of error] io
 
+val connect_uri : Uri.t -> [`Ok of t | `Error of error] io
+(** [connect_uri uri] connects to [uri], respecting options provided as
+    query parameters:
+      buffered=(0|1): 1 means use the underlying host's buffer cache
+      sync=(0|1): 1 means `flush` will also flush any storage hardware caches
+        (which will be slow but writes will persist even over a power loss)
+  *)
+
 val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
 (** [resize t new_size_sectors] attempts to resize the connected device
     to have the given number of sectors. If successful, subsequent calls
