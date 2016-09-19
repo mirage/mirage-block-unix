@@ -60,16 +60,24 @@ type info = {
   size_sectors: int64;
 }
 
+type config = {
+  buffered: bool;
+  sync: bool;
+  path: string;
+}
+
 type t = {
   mutable fd: Lwt_unix.file_descr option;
   m: Lwt_mutex.t;
-  name: string;
   mutable info: info;
+  config: config;
   use_fsync_after_write: bool;
   use_fsync_on_flush: bool;
 }
 
-let id { name } = name
+let get_config { config } = config
+
+let id { path } = path
 
 module Result = struct
   type ('a, 'b) result = [
@@ -107,7 +115,7 @@ let get_file_size filename fd =
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
-let connect_common ~buffered ~sync name =
+let connect_common ({ buffered; sync; path } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
@@ -119,10 +127,10 @@ let connect_common ~buffered ~sync name =
   try
     let fd, read_write =
       try
-        openfile name true 0o0, true
+        openfile path true 0o0, true
       with _ ->
-        openfile name false 0o0, false in
-    match get_file_size name fd with
+        openfile path false 0o0, false in
+    match get_file_size path fd with
     | `Error e ->
       Unix.close fd;
       return (`Error e)
@@ -132,11 +140,11 @@ let connect_common ~buffered ~sync name =
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
       let use_fsync_on_flush = sync in
-      return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write };
-        use_fsync_after_write; use_fsync_on_flush })
+      return (`Ok { fd = Some fd; m; info = { sector_size; size_sectors; read_write };
+        config; use_fsync_after_write; use_fsync_on_flush })
   with e ->
-    Log.err (fun f -> f "connect %s: failed to open file" name);
-    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" name)))
+    Log.err (fun f -> f "connect %s: failed to open file" path);
+    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" path)))
 
 (* prefix which signals we want to use buffered I/O *)
 let buffered_prefix = "buffered:"
@@ -148,15 +156,17 @@ let remove_prefix prefix x =
   else false, x
 
 let connect name =
-  let buffered, name = remove_prefix buffered_prefix name in
-  connect_common ~buffered ~sync:false name
+  let buffered, path = remove_prefix buffered_prefix name in
+  let config = { buffered; sync = false; path } in
+  connect_common config
 
 let connect_uri uri =
-  let name = Uri.path uri in
+  let path = Uri.path uri in
   let params = Uri.query uri in
   let buffered = try List.assoc "buffered" params = [ "1" ] with Not_found -> false in
   let sync     = try List.assoc "sync"     params = [ "1" ] with Not_found -> false in
-  connect_common ~buffered ~sync name
+  let config = { buffered; sync; path } in
+  connect_common config
 
 let disconnect t = match t.fd with
   | Some fd ->
@@ -185,17 +195,17 @@ let lwt_wrap_exn t op offset ?buffer f =
     | Some b ->
       let len = Cstruct.len b in
       if len mod t.info.sector_size <> 0
-      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.name
+      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.config.path
       else Lwt.return (`Ok ())
   ) >>*= fun () ->
   Lwt.catch f
     (function
       | End_of_file ->
-        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.name offset (describe_buffer buffer)
+        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.path offset (describe_buffer buffer)
       | Unix.Unix_error(code, fn, arg) ->
-        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.name offset (describe_buffer buffer)
+        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.path offset (describe_buffer buffer)
       | e ->
-        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.name offset (describe_buffer buffer)
+        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.path offset (describe_buffer buffer)
     )
 
 let rec read x sector_start buffers = match buffers with
