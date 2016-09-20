@@ -41,6 +41,13 @@ module Config: sig
     path: string; (** path to the underlying file *)
   }
   (** Configuration of a device *)
+
+  val to_string: t -> string
+  (** Marshal a config into a string of the form
+      file://<path>?sync=(0|1)&buffered=(0|1) *)
+
+  val of_string: string -> [ `Ok of t | `Error of [ `Msg of string ] ]
+  (** Parse the result of a previous [to_string] invocation *)
 end
 
 val connect_uri : Uri.t -> [`Ok of t | `Error of error] io

@@ -202,6 +202,19 @@ let test_flush () =
       ) in
   Lwt_main.run t
 
+let test_parse_print_config config =
+  let open Block.Config in
+  let s = to_string config in
+  Printf.sprintf "test parse(print(x)) == x for %s" s
+  >:: (fun () ->
+    match of_string s with
+    | `Error (`Msg m) -> failwith m
+    | `Ok config' ->
+      assert_equal ~printer:string_of_bool config.buffered config'.buffered;
+      assert_equal ~printer:string_of_bool config.sync     config'.sync;
+      assert_equal ~printer:(fun x -> x)   config.path     config'.path;
+  )
+
 let test_connect_uri query buffered sync () =
   let t =
     with_temp_file
@@ -229,6 +242,8 @@ let tests = [
   *)
   "test read/write after last sector" >:: test_eof;
   "test flush" >:: test_flush;
+  test_parse_print_config { Block.Config.buffered = true; sync = false; path = "C:\\cygwin" };
+  test_parse_print_config { Block.Config.buffered = false; sync = true; path = "/var/tmp/foo.qcow2" };
   "test connect_uri" >:: (test_connect_uri [] false false);
   "test connect_uri buffered=1" >:: (test_connect_uri [ "buffered", ["1"] ] true false);
   "test connect_uri buffered=1&sync=1" >:: (test_connect_uri [ "buffered", ["1"]; "sync", ["1"]] true true);

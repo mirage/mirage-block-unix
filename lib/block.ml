@@ -66,6 +66,26 @@ module Config = struct
     sync: bool;
     path: string;
   }
+
+  let to_string t =
+    let query = [
+      "buffered", [ if t.buffered then "1" else "0" ];
+      "sync",     [ if t.sync then "1" else "0" ];
+    ] in
+    let u = Uri.make ~scheme:"file" ~path:t.path ~query () in
+    Uri.to_string u
+
+  let of_string x =
+    let u = Uri.of_string x in
+    match Uri.scheme u with
+    | Some "file" ->
+      let query = Uri.query u in
+      let buffered = try List.assoc "buffered" query = [ "1" ] with Not_found -> false in
+      let sync     = try List.assoc "sync"     query = [ "1" ] with Not_found -> false in
+      let path = Uri.(pct_decode @@ path u) in
+      `Ok { buffered; sync; path }
+    | _ ->
+      `Error (`Msg "Config.to_string expected a string of the form file://<path>?sync=(0|1)&buffered=(0|1)")
 end
 
 type t = {
