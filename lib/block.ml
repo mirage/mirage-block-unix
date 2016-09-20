@@ -77,8 +77,6 @@ type t = {
 
 let get_config { config } = config
 
-let id { path } = path
-
 module Result = struct
   type ('a, 'b) result = [
     | `Ok of 'a
