@@ -161,7 +161,7 @@ let connect name =
   connect_common config
 
 let connect_uri uri =
-  let path = Uri.path uri in
+  let path = Uri.(pct_decode @@ path uri) in
   let params = Uri.query uri in
   let buffered = try List.assoc "buffered" params = [ "1" ] with Not_found -> false in
   let sync     = try List.assoc "sync"     params = [ "1" ] with Not_found -> false in
