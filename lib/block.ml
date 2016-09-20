@@ -138,7 +138,7 @@ let get_file_size filename fd =
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
-let connect_common ({ Config.buffered; sync; path } as config) =
+let connect_from_config ({ Config.buffered; sync; path } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
@@ -181,15 +181,7 @@ let remove_prefix prefix x =
 let connect name =
   let buffered, path = remove_prefix buffered_prefix name in
   let config = { Config.buffered; sync = false; path } in
-  connect_common config
-
-let connect_uri uri =
-  let path = Uri.(pct_decode @@ path uri) in
-  let params = Uri.query uri in
-  let buffered = try List.assoc "buffered" params = [ "1" ] with Not_found -> false in
-  let sync     = try List.assoc "sync"     params = [ "1" ] with Not_found -> false in
-  let config = { Config.buffered; sync; path } in
-  connect_common config
+  connect_from_config config
 
 let disconnect t = match t.fd with
   | Some fd ->

@@ -54,13 +54,9 @@ module Config: sig
   (** Parse the result of a previous [to_string] invocation *)
 end
 
-val connect_uri : Uri.t -> [`Ok of t | `Error of error] io
-(** [connect_uri uri] connects to [uri], respecting options provided as
-    query parameters:
-      buffered=(0|1): 1 means use the underlying host's buffer cache
-      sync=(0|1): 1 means `flush` will also flush any storage hardware caches
-        (which will be slow but writes will persist even over a power loss)
-  *)
+val connect_from_config : Config.t -> [`Ok of t | `Error of error] io
+(** [connect_from_config config] connects to the block device described by
+    [config]. *)
 
 val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
 (** [resize t new_size_sectors] attempts to resize the connected device
