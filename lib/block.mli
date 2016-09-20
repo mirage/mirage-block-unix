@@ -32,8 +32,6 @@ val blkgetsize: string -> Unix.file_descr -> [ `Ok of int64 | `Error of error ]
     given by [fd]. [path] is only used to construct a human-readable error
     message. *)
 
-val connect : string -> [`Ok of t | `Error of error] io
-
 module Config: sig
   type t = {
     buffered: bool; (** true if I/O hits the OS disk caches, false if "direct" *)
@@ -54,9 +52,11 @@ module Config: sig
   (** Parse the result of a previous [to_string] invocation *)
 end
 
-val connect_from_config : Config.t -> [`Ok of t | `Error of error] io
-(** [connect_from_config config] connects to the block device described by
-    [config]. *)
+val connect : ?buffered:bool -> ?sync:bool -> string -> [`Ok of t | `Error of error] io
+(** [connect ?buffered ?sync path] connects to a block device on the filesystem
+    at [path]. By default I/O is unbuffered and fully synchronous. These defaults
+    can be changed by supplying the optional arguments [~buffered:true] and
+    [~sync:false] *)
 
 val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
 (** [resize t new_size_sectors] attempts to resize the connected device
@@ -76,5 +76,8 @@ val seek_mapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
     device which may have data in it (typically this is the next mapped
     region) *)
 
-val get_config: t -> Config.t
-(** [get_config t] returns the configuration of a device *)
+val to_config: t -> Config.t
+(** [to_config t] returns the configuration of a device *)
+
+val of_config: Config.t -> [ `Ok of t | `Error of error ] io
+(** [of_config config] creates a fresh device from [config] *)

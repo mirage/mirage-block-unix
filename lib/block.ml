@@ -100,7 +100,7 @@ type t = {
   use_fsync_on_flush: bool;
 }
 
-let get_config { config } = config
+let to_config { config } = config
 
 module Result = struct
   type ('a, 'b) result = [
@@ -138,7 +138,7 @@ let get_file_size filename fd =
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
-let connect_from_config ({ Config.buffered; sync; path } as config) =
+let of_config ({ Config.buffered; sync; path } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
@@ -178,10 +178,12 @@ let remove_prefix prefix x =
   then true, String.sub x prefix' (x' - prefix')
   else false, x
 
-let connect name =
-  let buffered, path = remove_prefix buffered_prefix name in
-  let config = { Config.buffered; sync = false; path } in
-  connect_from_config config
+let connect ?buffered ?sync name =
+  let legacy_buffered, path = remove_prefix buffered_prefix name in
+  (* Keep support for the legacy buffered: prefix until version 3.x.y *)
+  let buffered = if legacy_buffered then Some true else buffered in
+  let config = Config.create ?buffered ?sync name in
+  of_config config
 
 let disconnect t = match t.fd with
   | Some fd ->
