@@ -34,12 +34,14 @@ val blkgetsize: string -> Unix.file_descr -> [ `Ok of int64 | `Error of error ]
 
 val connect : string -> [`Ok of t | `Error of error] io
 
-type config = {
-  buffered: bool; (** true if I/O hits the OS disk caches, false if "direct" *)
-  sync: bool; (** true if [flush] flushes all caches, including disk drive caches *)
-  path: string; (** path to the underlying file *)
-}
-(** Configuration of a device *)
+module Config: sig
+  type t = {
+    buffered: bool; (** true if I/O hits the OS disk caches, false if "direct" *)
+    sync: bool; (** true if [flush] flushes all caches, including disk drive caches *)
+    path: string; (** path to the underlying file *)
+  }
+  (** Configuration of a device *)
+end
 
 val connect_uri : Uri.t -> [`Ok of t | `Error of error] io
 (** [connect_uri uri] connects to [uri], respecting options provided as
@@ -67,5 +69,5 @@ val seek_mapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
     device which may have data in it (typically this is the next mapped
     region) *)
 
-val get_config: t -> config
-(** [get_behaviour t] returns the configuration of a device *)
+val get_config: t -> Config.t
+(** [get_config t] returns the configuration of a device *)

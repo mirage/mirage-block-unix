@@ -211,8 +211,8 @@ let test_connect_uri query buffered sync () =
          | `Error _ -> failwith (Printf.sprintf "Block.connect %s failed" (Uri.to_string uri))
          | `Ok device1 ->
            let config = Block.get_config device1 in
-           assert_equal ~printer:string_of_bool buffered config.Block.buffered;
-           assert_equal ~printer:string_of_bool sync config.Block.sync;
+           assert_equal ~printer:string_of_bool buffered config.Block.Config.buffered;
+           assert_equal ~printer:string_of_bool sync config.Block.Config.sync;
            Block.disconnect device1
       ) in
   Lwt_main.run t

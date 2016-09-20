@@ -60,17 +60,19 @@ type info = {
   size_sectors: int64;
 }
 
-type config = {
-  buffered: bool;
-  sync: bool;
-  path: string;
-}
+module Config = struct
+  type t = {
+    buffered: bool;
+    sync: bool;
+    path: string;
+  }
+end
 
 type t = {
   mutable fd: Lwt_unix.file_descr option;
   m: Lwt_mutex.t;
   mutable info: info;
-  config: config;
+  config: Config.t;
   use_fsync_after_write: bool;
   use_fsync_on_flush: bool;
 }
@@ -113,7 +115,7 @@ let get_file_size filename fd =
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
-let connect_common ({ buffered; sync; path } as config) =
+let connect_common ({ Config.buffered; sync; path } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
@@ -155,7 +157,7 @@ let remove_prefix prefix x =
 
 let connect name =
   let buffered, path = remove_prefix buffered_prefix name in
-  let config = { buffered; sync = false; path } in
+  let config = { Config.buffered; sync = false; path } in
   connect_common config
 
 let connect_uri uri =
@@ -163,7 +165,7 @@ let connect_uri uri =
   let params = Uri.query uri in
   let buffered = try List.assoc "buffered" params = [ "1" ] with Not_found -> false in
   let sync     = try List.assoc "sync"     params = [ "1" ] with Not_found -> false in
-  let config = { buffered; sync; path } in
+  let config = { Config.buffered; sync; path } in
   connect_common config
 
 let disconnect t = match t.fd with
@@ -193,17 +195,17 @@ let lwt_wrap_exn t op offset ?buffer f =
     | Some b ->
       let len = Cstruct.len b in
       if len mod t.info.sector_size <> 0
-      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.config.path
+      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.config.Config.path
       else Lwt.return (`Ok ())
   ) >>*= fun () ->
   Lwt.catch f
     (function
       | End_of_file ->
-        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.path offset (describe_buffer buffer)
+        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.Config.path offset (describe_buffer buffer)
       | Unix.Unix_error(code, fn, arg) ->
-        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.path offset (describe_buffer buffer)
+        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.Config.path offset (describe_buffer buffer)
       | e ->
-        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.path offset (describe_buffer buffer)
+        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.Config.path offset (describe_buffer buffer)
     )
 
 let rec read x sector_start buffers = match buffers with
