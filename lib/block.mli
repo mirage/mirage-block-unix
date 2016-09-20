@@ -42,6 +42,10 @@ module Config: sig
   }
   (** Configuration of a device *)
 
+  val create: ?buffered:bool -> ?sync:bool -> string -> t
+  (** [create ?buffered ?sync path] constructs a configuration referencing the
+      file stored at [path]/ *)
+
   val to_string: t -> string
   (** Marshal a config into a string of the form
       file://<path>?sync=(0|1)&buffered=(0|1) *)

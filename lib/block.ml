@@ -67,6 +67,9 @@ module Config = struct
     path: string;
   }
 
+  let create ?(buffered = false) ?(sync = true) path =
+    { buffered; sync; path }
+
   let to_string t =
     let query = [
       "buffered", [ if t.buffered then "1" else "0" ];
