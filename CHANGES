@@ -1,3 +1,9 @@
+2.4.0 (21-Sept-2016)
+* add optional arguments with safe defaults to `Block.connect`.
+* add a new Block.Config.t containing configuration parameters,
+  serialisation and deserialisation
+* fix appveyor build by removing cygwin curl
+
 2.3.0 (2-Aug-2016)
 * use fcntl(F_FULLFSYNC) on OSX rather than plain fsync
 * add linux-headers depext for alpine
