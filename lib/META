@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 312a616af69e79921b12c9b4fe4c9c17)
+# DO NOT EDIT (digest: ef967ecf0e377d8e40ec630b22bf2faf)
 version = "2.3.0"
 description = "Mirage block driver for Unix"
-requires = "cstruct cstruct.lwt lwt lwt.unix mirage-types logs"
+requires = "cstruct cstruct.lwt lwt lwt.unix mirage-types logs uri"
 archive(byte) = "mirage_block_unix.cma"
 archive(byte, plugin) = "mirage_block_unix.cma"
 archive(native) = "mirage_block_unix.cmxa"

@@ -32,7 +32,31 @@ val blkgetsize: string -> Unix.file_descr -> [ `Ok of int64 | `Error of error ]
     given by [fd]. [path] is only used to construct a human-readable error
     message. *)
 
-val connect : string -> [`Ok of t | `Error of error] io
+module Config: sig
+  type t = {
+    buffered: bool; (** true if I/O hits the OS disk caches, false if "direct" *)
+    sync: bool; (** true if [flush] flushes all caches, including disk drive caches *)
+    path: string; (** path to the underlying file *)
+  }
+  (** Configuration of a device *)
+
+  val create: ?buffered:bool -> ?sync:bool -> string -> t
+  (** [create ?buffered ?sync path] constructs a configuration referencing the
+      file stored at [path]/ *)
+
+  val to_string: t -> string
+  (** Marshal a config into a string of the form
+      file://<path>?sync=(0|1)&buffered=(0|1) *)
+
+  val of_string: string -> [ `Ok of t | `Error of [ `Msg of string ] ]
+  (** Parse the result of a previous [to_string] invocation *)
+end
+
+val connect : ?buffered:bool -> ?sync:bool -> string -> [`Ok of t | `Error of error] io
+(** [connect ?buffered ?sync path] connects to a block device on the filesystem
+    at [path]. By default I/O is unbuffered and fully synchronous. These defaults
+    can be changed by supplying the optional arguments [~buffered:true] and
+    [~sync:false] *)
 
 val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
 (** [resize t new_size_sectors] attempts to resize the connected device
@@ -51,3 +75,9 @@ val seek_mapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
 (** [seek_mapped t start] returns the sector offset of the next regoin of the
     device which may have data in it (typically this is the next mapped
     region) *)
+
+val to_config: t -> Config.t
+(** [to_config t] returns the configuration of a device *)
+
+val of_config: Config.t -> [ `Ok of t | `Error of error ] io
+(** [of_config config] creates a fresh device from [config] *)

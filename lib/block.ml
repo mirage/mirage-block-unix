@@ -60,15 +60,47 @@ type info = {
   size_sectors: int64;
 }
 
+module Config = struct
+  type t = {
+    buffered: bool;
+    sync: bool;
+    path: string;
+  }
+
+  let create ?(buffered = false) ?(sync = true) path =
+    { buffered; sync; path }
+
+  let to_string t =
+    let query = [
+      "buffered", [ if t.buffered then "1" else "0" ];
+      "sync",     [ if t.sync then "1" else "0" ];
+    ] in
+    let u = Uri.make ~scheme:"file" ~path:t.path ~query () in
+    Uri.to_string u
+
+  let of_string x =
+    let u = Uri.of_string x in
+    match Uri.scheme u with
+    | Some "file" ->
+      let query = Uri.query u in
+      let buffered = try List.assoc "buffered" query = [ "1" ] with Not_found -> false in
+      let sync     = try List.assoc "sync"     query = [ "1" ] with Not_found -> false in
+      let path = Uri.(pct_decode @@ path u) in
+      `Ok { buffered; sync; path }
+    | _ ->
+      `Error (`Msg "Config.to_string expected a string of the form file://<path>?sync=(0|1)&buffered=(0|1)")
+end
+
 type t = {
   mutable fd: Lwt_unix.file_descr option;
   m: Lwt_mutex.t;
-  name: string;
   mutable info: info;
-  use_fsync: bool;
+  config: Config.t;
+  use_fsync_after_write: bool;
+  use_fsync_on_flush: bool;
 }
 
-let id { name } = name
+let to_config { config } = config
 
 module Result = struct
   type ('a, 'b) result = [
@@ -106,18 +138,8 @@ let get_file_size filename fd =
       (`Unknown
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
-(* prefix which signals we want to use buffered I/O *)
-let buffered_prefix = "buffered:"
-
-let remove_prefix prefix x =
-  let prefix' = String.length prefix and x' = String.length x in
-  if x' >= prefix' && (String.sub x 0 prefix' = prefix)
-  then true, String.sub x prefix' (x' - prefix')
-  else false, x
-
-let connect name =
-  let buffered, name = remove_prefix buffered_prefix name in
-  let openfile, use_fsync = match buffered, is_win32 with
+let of_config ({ Config.buffered; sync; path } as config) =
+  let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
     | false, true ->
@@ -128,10 +150,10 @@ let connect name =
   try
     let fd, read_write =
       try
-        openfile name true 0o0, true
+        openfile path true 0o0, true
       with _ ->
-        openfile name false 0o0, false in
-    match get_file_size name fd with
+        openfile path false 0o0, false in
+    match get_file_size path fd with
     | `Error e ->
       Unix.close fd;
       return (`Error e)
@@ -140,10 +162,28 @@ let connect name =
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
-      return (`Ok { fd = Some fd; m; name; info = { sector_size; size_sectors; read_write }; use_fsync })
+      let use_fsync_on_flush = sync in
+      return (`Ok { fd = Some fd; m; info = { sector_size; size_sectors; read_write };
+        config; use_fsync_after_write; use_fsync_on_flush })
   with e ->
-    Log.err (fun f -> f "connect %s: failed to open file" name);
-    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" name)))
+    Log.err (fun f -> f "connect %s: failed to open file" path);
+    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" path)))
+
+(* prefix which signals we want to use buffered I/O *)
+let buffered_prefix = "buffered:"
+
+let remove_prefix prefix x =
+  let prefix' = String.length prefix and x' = String.length x in
+  if x' >= prefix' && (String.sub x 0 prefix' = prefix)
+  then true, String.sub x prefix' (x' - prefix')
+  else false, x
+
+let connect ?buffered ?sync name =
+  let legacy_buffered, path = remove_prefix buffered_prefix name in
+  (* Keep support for the legacy buffered: prefix until version 3.x.y *)
+  let buffered = if legacy_buffered then Some true else buffered in
+  let config = Config.create ?buffered ?sync name in
+  of_config config
 
 let disconnect t = match t.fd with
   | Some fd ->
@@ -172,17 +212,17 @@ let lwt_wrap_exn t op offset ?buffer f =
     | Some b ->
       let len = Cstruct.len b in
       if len mod t.info.sector_size <> 0
-      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.name
+      then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.config.Config.path
       else Lwt.return (`Ok ())
   ) >>*= fun () ->
   Lwt.catch f
     (function
       | End_of_file ->
-        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.name offset (describe_buffer buffer)
+        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.Config.path offset (describe_buffer buffer)
       | Unix.Unix_error(code, fn, arg) ->
-        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.name offset (describe_buffer buffer)
+        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.Config.path offset (describe_buffer buffer)
       | e ->
-        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.name offset (describe_buffer buffer)
+        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.Config.path offset (describe_buffer buffer)
     )
 
 let rec read x sector_start buffers = match buffers with
@@ -236,7 +276,7 @@ let rec write x sector_start buffers = match buffers with
                     really_write fd b
                   end
                ) >>= fun () ->
-             ( if x.use_fsync then Lwt_unix.fsync fd else Lwt.return () )
+             ( if x.use_fsync_after_write then Lwt_unix.fsync fd else Lwt.return () )
              >>= fun () ->
              return (`Ok ())
           ) >>= function
@@ -272,7 +312,9 @@ let flush t =
   | Some fd ->
     lwt_wrap_exn t "fsync" 0L
       (fun () ->
-         Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd))
+         ( if t.use_fsync_on_flush
+           then Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd))
+           else Lwt.return_unit )
          >>= fun () ->
          return (`Ok ())
       )
