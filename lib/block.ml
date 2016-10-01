@@ -154,20 +154,21 @@ let of_config ({ Config.buffered; sync; path } as config) =
       with _ ->
         openfile path false 0o0, false in
     match get_file_size path fd with
-    | `Error e ->
+    | `Error (`Unknown e) ->
       Unix.close fd;
-      return (`Error e)
+      fail_with e
+    | `Error _ -> fail_with "mirage-block-unix:of_config: unknown error"
     | `Ok x ->
       let sector_size = 512 in (* XXX: hardcoded *)
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
       let use_fsync_on_flush = sync in
-      return (`Ok { fd = Some fd; m; info = { sector_size; size_sectors; read_write };
+      return ({ fd = Some fd; m; info = { sector_size; size_sectors; read_write };
         config; use_fsync_after_write; use_fsync_on_flush })
   with e ->
     Log.err (fun f -> f "connect %s: failed to open file" path);
-    return (`Error (`Unknown (Printf.sprintf "connect %s: failed to open file" path)))
+    fail_with (Printf.sprintf "connect %s: failed to open file" path)
 
 (* prefix which signals we want to use buffered I/O *)
 let buffered_prefix = "buffered:"
