@@ -52,7 +52,7 @@ module Config: sig
   (** Parse the result of a previous [to_string] invocation *)
 end
 
-val connect : ?buffered:bool -> ?sync:bool -> string -> [`Ok of t | `Error of error] io
+val connect : ?buffered:bool -> ?sync:bool -> string -> t io
 (** [connect ?buffered ?sync path] connects to a block device on the filesystem
     at [path]. By default I/O is unbuffered and fully synchronous. These defaults
     can be changed by supplying the optional arguments [~buffered:true] and
@@ -79,5 +79,5 @@ val seek_mapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
 val to_config: t -> Config.t
 (** [to_config t] returns the configuration of a device *)
 
-val of_config: Config.t -> [ `Ok of t | `Error of error ] io
+val of_config: Config.t -> t io
 (** [of_config config] creates a fresh device from [config] *)
