@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: b4dad6087354892e863ef19ab7d35982)
+# DO NOT EDIT (digest: b50b38ca146892a55fcc56b9df555ada)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -28,6 +28,7 @@ true: annot, bin_annot
 <lib/*.ml{,i,y}>: pkg_lwt
 <lib/*.ml{,i,y}>: pkg_lwt.unix
 <lib/*.ml{,i,y}>: pkg_mirage-types
+<lib/*.ml{,i,y}>: pkg_rresult
 <lib/*.ml{,i,y}>: pkg_uri
 "lib/odirect_stubs.c": pkg_cstruct
 "lib/odirect_stubs.c": pkg_cstruct.lwt
@@ -35,6 +36,7 @@ true: annot, bin_annot
 "lib/odirect_stubs.c": pkg_lwt
 "lib/odirect_stubs.c": pkg_lwt.unix
 "lib/odirect_stubs.c": pkg_mirage-types
+"lib/odirect_stubs.c": pkg_rresult
 "lib/odirect_stubs.c": pkg_uri
 "lib/blkgetsize_stubs.c": pkg_cstruct
 "lib/blkgetsize_stubs.c": pkg_cstruct.lwt
@@ -42,6 +44,7 @@ true: annot, bin_annot
 "lib/blkgetsize_stubs.c": pkg_lwt
 "lib/blkgetsize_stubs.c": pkg_lwt.unix
 "lib/blkgetsize_stubs.c": pkg_mirage-types
+"lib/blkgetsize_stubs.c": pkg_rresult
 "lib/blkgetsize_stubs.c": pkg_uri
 "lib/lseekhole_stubs.c": pkg_cstruct
 "lib/lseekhole_stubs.c": pkg_cstruct.lwt
@@ -49,6 +52,7 @@ true: annot, bin_annot
 "lib/lseekhole_stubs.c": pkg_lwt
 "lib/lseekhole_stubs.c": pkg_lwt.unix
 "lib/lseekhole_stubs.c": pkg_mirage-types
+"lib/lseekhole_stubs.c": pkg_rresult
 "lib/lseekhole_stubs.c": pkg_uri
 "lib/flush_stubs.c": pkg_cstruct
 "lib/flush_stubs.c": pkg_cstruct.lwt
@@ -56,6 +60,7 @@ true: annot, bin_annot
 "lib/flush_stubs.c": pkg_lwt
 "lib/flush_stubs.c": pkg_lwt.unix
 "lib/flush_stubs.c": pkg_mirage-types
+"lib/flush_stubs.c": pkg_rresult
 "lib/flush_stubs.c": pkg_uri
 # Executable test
 <lib_test/test.{native,byte}>: pkg_cstruct
@@ -65,8 +70,10 @@ true: annot, bin_annot
 <lib_test/test.{native,byte}>: pkg_logs
 <lib_test/test.{native,byte}>: pkg_lwt
 <lib_test/test.{native,byte}>: pkg_lwt.unix
+<lib_test/test.{native,byte}>: pkg_mirage-runtime
 <lib_test/test.{native,byte}>: pkg_mirage-types
 <lib_test/test.{native,byte}>: pkg_oUnit
+<lib_test/test.{native,byte}>: pkg_rresult
 <lib_test/test.{native,byte}>: pkg_uri
 <lib_test/test.{native,byte}>: use_mirage_block_unix
 <lib_test/*.ml{,i,y}>: pkg_cstruct
@@ -76,8 +83,10 @@ true: annot, bin_annot
 <lib_test/*.ml{,i,y}>: pkg_logs
 <lib_test/*.ml{,i,y}>: pkg_lwt
 <lib_test/*.ml{,i,y}>: pkg_lwt.unix
+<lib_test/*.ml{,i,y}>: pkg_mirage-runtime
 <lib_test/*.ml{,i,y}>: pkg_mirage-types
 <lib_test/*.ml{,i,y}>: pkg_oUnit
+<lib_test/*.ml{,i,y}>: pkg_rresult
 <lib_test/*.ml{,i,y}>: pkg_uri
 <lib_test/*.ml{,i,y}>: use_mirage_block_unix
 <lib_test/test.{native,byte}>: custom

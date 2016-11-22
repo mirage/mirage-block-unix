@@ -20,11 +20,11 @@ open OUnit
 open Utils
 
 let or_failwith = function
-  | `Error (`Unknown msg) -> failwith msg
-  | `Error `Is_read_only -> failwith "Is_read_only"
-  | `Error `Unimplemented -> failwith "Unimplemented"
-  | `Error `Disconnected -> failwith "Disconnected"
-  | `Ok x -> x
+  | Error e -> failwith @@ Format.asprintf "%a" Mirage_pp.pp_block_error e
+  | Ok x -> x
+let write_or_failwith = function
+  | Error e -> failwith @@ Format.asprintf "%a" Mirage_pp.pp_block_write_error e
+  | Ok x -> x
 
 let test_enoent () =
   let t =
@@ -51,8 +51,8 @@ let test_open_read () =
     let sector' = alloc 512 in
     Block.connect name >>= fun device ->
     Block.read device Int64.(sub (div size 512L) 1L) [ sector' ] >>= function
-    | `Error _ -> failwith (Printf.sprintf "Block.read %s failed" name)
-    | `Ok () -> begin
+    | Error _ -> failwith (Printf.sprintf "Block.read %s failed" name)
+    | Ok () -> begin
         assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal sector sector';
         return ()
       end in
@@ -85,17 +85,17 @@ let test_write_read () =
          Block.get_info device1 >>= fun info1 ->
          let sector = alloc info1.Block.sector_size in
          let rec write x =
-           if x = 0 then Lwt.return (`Ok ()) else begin
+           if x = 0 then Lwt.return (Ok ()) else begin
              Cstruct.memset sector x;
              Block.write device1 (Int64.of_int x) [ sector ] >>= fun r ->
-             let () = or_failwith r in
+             let () = write_or_failwith r in
              write (x - 1)
            end in
          write 255 >>= fun x ->
          let () = or_failwith x in
          let sector' = alloc info1.Block.sector_size in
          let rec read x =
-           if x = 0 then Lwt.return (`Ok ()) else begin
+           if x = 0 then Lwt.return (Ok ()) else begin
              Cstruct.memset sector' x;
              Block.read device1 (Int64.of_int x) [ sector ] >>= fun r ->
              let () = or_failwith r in
@@ -117,8 +117,8 @@ let test_buffer_wrong_length () =
          Block.get_info device1 >>= fun info1 ->
          let sector = alloc info1.Block.sector_size in
          Block.write device1 0L [ Cstruct.shift sector 1 ] >>= function
-         | `Error _ -> Lwt.return ()
-         | `Ok () -> failwith "a write with a bad length succeeded"
+         | Error _ -> Lwt.return ()
+         | Ok () -> failwith "a write with a bad length succeeded"
       ) in
   Lwt_main.run t
 
@@ -138,11 +138,11 @@ let test_eof () =
     let sector'' = alloc 1024 in
     Block.connect name >>= fun device ->
     Block.write device 2046L [ sector'; sector'' ] >>= function
-    | `Ok _ -> failwith (Printf.sprintf "Block.write %s should have failed" name)
-    | `Error _ ->
+    | Ok _ -> failwith (Printf.sprintf "Block.write %s should have failed" name)
+    | Error _ ->
       Block.read device 2046L [ sector'; sector'' ] >>= function
-      | `Ok _ -> failwith (Printf.sprintf "Block.read %s should have failed" name)
-      | `Error _ -> return () in
+      | Ok _ -> failwith (Printf.sprintf "Block.read %s should have failed" name)
+      | Error _ -> return () in
   Lwt_main.run t
 
 let test_resize () =
@@ -154,8 +154,8 @@ let test_resize () =
     Block.get_info device >>= fun info1 ->
     assert_equal ~printer:Int64.to_string 0L info1.Block.size_sectors;
     Block.resize device 1L >>= function
-    | `Error _ -> failwith (Printf.sprintf "Block.resize %s failed" name)
-    | `Ok () ->
+    | Error _ -> failwith (Printf.sprintf "Block.resize %s failed" name)
+    | Ok () ->
       Block.get_info device >>= fun info2 ->
       assert_equal ~printer:Int64.to_string 1L info2.Block.size_sectors;
       return () in
@@ -167,8 +167,8 @@ let test_flush () =
       (fun file ->
          Block.connect file >>= fun device1 ->
          Block.flush device1 >>= function
-         | `Error _ -> failwith (Printf.sprintf "Block.flush %s failed" file)
-         | `Ok () -> Block.disconnect device1
+         | Error _ -> failwith (Printf.sprintf "Block.flush %s failed" file)
+         | Ok () -> Block.disconnect device1
       ) in
   Lwt_main.run t
 
@@ -178,8 +178,8 @@ let test_parse_print_config config =
   Printf.sprintf "test parse(print(x)) == x for %s" s
   >:: (fun () ->
     match of_string s with
-    | `Error (`Msg m) -> failwith m
-    | `Ok config' ->
+    | Error (`Msg m) -> failwith m
+    | Ok config' ->
       assert_equal ~printer:string_of_bool config.buffered config'.buffered;
       assert_equal ~printer:string_of_bool config.sync     config'.sync;
       assert_equal ~printer:(fun x -> x)   config.path     config'.path;

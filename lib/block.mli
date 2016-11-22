@@ -15,6 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+open Result
+
 (** Block device on top of Lwt_unix *)
 
 include V1.BLOCK
@@ -27,7 +29,7 @@ val really_read: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
 
 val really_write: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
 
-val blkgetsize: string -> Unix.file_descr -> [ `Ok of int64 | `Error of error ]
+val blkgetsize: string -> Unix.file_descr -> (int64, error) result
 (** [blkgetsize path fd]: returns the size of the open block device
     given by [fd]. [path] is only used to construct a human-readable error
     message. *)
@@ -48,7 +50,7 @@ module Config: sig
   (** Marshal a config into a string of the form
       file://<path>?sync=(0|1)&buffered=(0|1) *)
 
-  val of_string: string -> [ `Ok of t | `Error of [ `Msg of string ] ]
+  val of_string: string -> (t, [`Msg of string ]) result
   (** Parse the result of a previous [to_string] invocation *)
 end
 
@@ -58,20 +60,20 @@ val connect : ?buffered:bool -> ?sync:bool -> string -> t io
     can be changed by supplying the optional arguments [~buffered:true] and
     [~sync:false] *)
 
-val resize : t -> int64 -> [ `Ok of unit | `Error of error ] io
+val resize : t -> int64 -> (unit, V1.Block.write_error) result io
 (** [resize t new_size_sectors] attempts to resize the connected device
     to have the given number of sectors. If successful, subsequent calls
     to [get_info] will reflect the new size. *)
 
-val flush : t -> [ `Ok of unit | `Error of error ] io
+val flush : t -> (unit, V1.Block.write_error) result io
 (** [flush t] flushes any buffers, if the file has been opened in buffered
     mode *)
 
-val seek_unmapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
+val seek_unmapped: t -> int64 -> (int64, error) result io
 (** [seek_unmapped t start] returns the sector offset of the next guaranteed
     zero-filled region (typically guaranteed because it is unmapped) *)
 
-val seek_mapped: t -> int64 -> [ `Ok of int64 | `Error of error ] io
+val seek_mapped: t -> int64 -> (int64, error) result io
 (** [seek_mapped t start] returns the sector offset of the next regoin of the
     device which may have data in it (typically this is the next mapped
     region) *)
