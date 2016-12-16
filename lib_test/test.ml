@@ -191,6 +191,56 @@ let test_parse_print_config config =
       assert_equal ~printer:(fun x -> x)          config.path     config'.path;
   )
 
+let test_not_multiple_of_sectors () =
+  let t =
+    let file = find_unused_file () in
+    Lwt.finalize
+      (fun () ->
+        (* Create a file containing < 512 bytes *)
+        Lwt_unix.openfile file [ Lwt_unix.O_CREAT; Lwt_unix.O_WRONLY ] 0o0644 >>= fun fd ->
+        let message = "Hello" in
+        let buf = Cstruct.create (String.length message) in
+        Cstruct.blit_from_string message 0 buf 0 (String.length message);
+        Lwt_cstruct.(complete (write fd) buf) >>= fun () ->
+        Lwt_unix.close fd >>= fun () ->
+        (* We should see 1 sector *)
+        Block.connect file >>= fun device ->
+        Block.get_info device >>= fun info1 ->
+        assert_equal ~printer:Int64.to_string 1L info1.Mirage_block.size_sectors;
+        (* We should be able to read 1 sector, padded with zeroes *)
+        let sector = Cstruct.create info1.Mirage_block.sector_size in
+        Block.read device 0L [ sector ] >>= function
+        | Error _ -> failwith (Printf.sprintf "Block.read %s: failed to read sector 0" file)
+        | Ok () ->
+        let message' = Cstruct.(to_string (sub sector 0 (String.length message))) in
+        assert_equal ~printer:(fun x -> x) message message';
+        for i = String.length message to Cstruct.len sector - 1 do
+          assert_equal ~printer:string_of_int 0 (Cstruct.get_uint8 sector i)
+        done;
+        (* We should be able to write 1 sector *)
+        Cstruct.memset sector 0xff;
+        Block.write device 0L [ sector ] >>= function
+        | Error _ -> failwith (Printf.sprintf "Block.write %s: failed to write sector 0" file)
+        | Ok () ->
+        (* We should be able to read back the contents *)
+        Block.read device 0L [ sector ] >>= function
+        | Error _ -> failwith (Printf.sprintf "Block.read %s: failed to read sector 0" file)
+        | Ok () ->
+        for i = 0 to Cstruct.len sector - 1 do
+          assert_equal ~printer:string_of_int 0xff (Cstruct.get_uint8 sector i)
+        done;
+        (* The file should still be 1 sector in length *)
+        Block.disconnect device >>= fun () ->
+        Block.connect file >>= fun device ->
+        Block.get_info device >>= fun info1 ->
+        assert_equal ~printer:Int64.to_string 1L info1.Mirage_block.size_sectors;
+        Block.disconnect device
+      )
+    (fun () ->
+      Lwt_unix.unlink file
+    ) in
+  Lwt_main.run t
+
 let not_implemented_on_windows = [
   "test resize" >:: test_resize;
 ]
@@ -208,6 +258,7 @@ let tests = [
   test_parse_print_config { Block.Config.buffered = false; sync = Some `ToDrive; path = "/var/tmp/foo.qcow2" };
   "test write then read" >:: test_write_read;
   "test that writes fail if the buffer has a bad length" >:: test_buffer_wrong_length;
+  "files which aren't a whole number of sectors" >:: test_not_multiple_of_sectors;
 ] @ (if Sys.os_type <> "Win32" then not_implemented_on_windows else [])
 
 let _ =
