@@ -7,6 +7,7 @@ script: bash ./.travis-docker.sh
 env:
  global:
    - PACKAGE="mirage-block-unix"
+   - EXTRA_REMOTES="https://github.com/mirage/mirage-dev.git"
  matrix:
    - DISTRO=debian-stable OCAML_VERSION=4.02.3
    - DISTRO=debian-testing OCAML_VERSION=4.02.3
