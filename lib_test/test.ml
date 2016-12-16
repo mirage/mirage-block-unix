@@ -262,5 +262,6 @@ let tests = [
 ] @ (if Sys.os_type <> "Win32" then not_implemented_on_windows else [])
 
 let _ =
+  Logs.set_reporter (Logs_fmt.reporter ());
   let suite = "block" >::: tests in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
