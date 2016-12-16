@@ -194,8 +194,12 @@ let of_config ({ Config.buffered; sync; path } as config) =
         fail_with e
       | Error _ -> fail_with "mirage-block-unix:of_config: unknown error"
       | Ok sector_size ->
-        (* Round up the number of sectors so we don't miss the data on the end *)
+        (* If the file length is not sector-aligned, we would like to represent the
+           last bytes as a sector with zero-padding. Unfortunately on Linux with
+           O_DIRECT `read` will fail with EINVAL. *)
         let size_sectors = Int64.(div (add size_bytes (of_int (sector_size-1))) (of_int sector_size)) in
+        if Int64.(mul size_sectors (of_int sector_size)) > size_bytes && not(buffered)
+        then Log.warn (fun f -> f "Length not sector aligned: O_DIRECT will fail with EINVAL on some platforms");
         let fd = Lwt_unix.of_unix_file_descr fd in
         let m = Lwt_mutex.create () in
         let seek_offset = 0L in
