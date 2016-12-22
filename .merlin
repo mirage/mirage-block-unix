@@ -1,4 +1,4 @@
-PKG result mirage-block-lwt uri rresult
+PKG result mirage-block-lwt uri rresult oUnit
 
 S lib
 S lib_test
