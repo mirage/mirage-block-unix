@@ -23,7 +23,19 @@ let src =
   Logs.Src.set_level src (Some Logs.Info);
   src
 
-type error = V1.Block.error
+(* samoht: `Msg should be the list of all possible exceptions *)
+type error = [ Mirage_block.error | `Msg of string ]
+
+(* samoht: `Msg should be the list of all possible exceptions *)
+type write_error = [ Mirage_block.write_error | `Msg of string ]
+
+let pp_error ppf = function
+  | #Mirage_block.error as e -> Mirage_block.pp_error ppf e
+  | `Msg s -> Fmt.string ppf s
+
+let pp_write_error ppf = function
+  | #Mirage_block.write_error as e -> Mirage_block.pp_write_error ppf e
+  | `Msg s -> Fmt.string ppf s
 
 module Log = (val Logs.src_log src : Logs.LOG)
 
@@ -51,12 +63,6 @@ open Lwt
 type 'a io = 'a Lwt.t
 
 type page_aligned_buffer = Cstruct.t
-
-type info = {
-  read_write: bool;
-  sector_size: int;
-  size_sectors: int64;
-}
 
 module Config = struct
   type t = {
@@ -92,7 +98,7 @@ end
 type t = {
   mutable fd: Lwt_unix.file_descr option;
   m: Lwt_mutex.t;
-  mutable info: info;
+  mutable info: Mirage_block.info;
   config: Config.t;
   use_fsync_after_write: bool;
   use_fsync_on_flush: bool;
@@ -147,7 +153,8 @@ let of_config ({ Config.buffered; sync; path } as config) =
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
       let use_fsync_on_flush = sync in
-      return ({ fd = Some fd; m; info = { sector_size; size_sectors; read_write };
+      return ({ fd = Some fd; m;
+                info = { Mirage_block.sector_size; size_sectors; read_write };
         config; use_fsync_after_write; use_fsync_on_flush })
   with e ->
     Log.err (fun f -> f "connect %s: failed to open file" path);
@@ -181,6 +188,8 @@ let get_info { info } = return info
 
 let really_read fd = Lwt_cstruct.complete (Lwt_cstruct.read fd)
 let really_write fd = Lwt_cstruct.complete (Lwt_cstruct.write fd)
+
+open Mirage_block
 
 let lwt_wrap_exn t op offset ?buffer f =
   let fatalf fmt = Printf.ksprintf (fun s ->

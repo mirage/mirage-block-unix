@@ -19,9 +19,7 @@ open Result
 
 (** Block device on top of Lwt_unix *)
 
-include V1.BLOCK
-  with type 'a io = 'a Lwt.t
-   and type     page_aligned_buffer = Cstruct.t
+include Mirage_block_lwt.S
 
 (** {0} low-level convenience functions *)
 
@@ -60,12 +58,12 @@ val connect : ?buffered:bool -> ?sync:bool -> string -> t io
     can be changed by supplying the optional arguments [~buffered:true] and
     [~sync:false] *)
 
-val resize : t -> int64 -> (unit, V1.Block.write_error) result io
+val resize : t -> int64 -> (unit, write_error) result io
 (** [resize t new_size_sectors] attempts to resize the connected device
     to have the given number of sectors. If successful, subsequent calls
     to [get_info] will reflect the new size. *)
 
-val flush : t -> (unit, V1.Block.write_error) result io
+val flush : t -> (unit, write_error) result io
 (** [flush t] flushes any buffers, if the file has been opened in buffered
     mode *)
 

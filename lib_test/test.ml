@@ -18,12 +18,13 @@ open Lwt
 open Block
 open OUnit
 open Utils
+open Result
 
 let or_failwith = function
-  | Error e -> failwith @@ Format.asprintf "%a" Mirage_pp.pp_block_error e
+  | Error e -> failwith @@ Format.asprintf "%a" Block.pp_error e
   | Ok x -> x
 let write_or_failwith = function
-  | Error e -> failwith @@ Format.asprintf "%a" Mirage_pp.pp_block_write_error e
+  | Error e -> failwith @@ Format.asprintf "%a" Block.pp_write_error e
   | Ok x -> x
 
 let test_enoent () =
@@ -58,18 +59,20 @@ let test_open_read () =
       end in
   Lwt_main.run t
 
+open Mirage_block
+
 let test_open_block () =
   let t =
     with_temp_file
       (fun file ->
          Block.connect file >>= fun device1 ->
          Block.get_info device1 >>= fun info1 ->
-         let size1 = Int64.(mul info1.Block.size_sectors (of_int info1.Block.sector_size)) in
+         let size1 = Int64.(mul info1.size_sectors (of_int info1.sector_size)) in
          with_temp_volume file
            (fun volume ->
               Block.connect volume >>= fun device2 ->
               Block.get_info device2 >>= fun info2 ->
-              let size2 = Int64.(mul info2.Block.size_sectors (of_int info2.Block.sector_size)) in
+              let size2 = Int64.(mul info2.size_sectors (of_int info2.sector_size)) in
               (* The size of the file and the block device should be the same *)
               assert_equal ~printer:Int64.to_string size1 size2;
               Block.disconnect device2
@@ -83,7 +86,7 @@ let test_write_read () =
       (fun file ->
          Block.connect file >>= fun device1 ->
          Block.get_info device1 >>= fun info1 ->
-         let sector = alloc info1.Block.sector_size in
+         let sector = alloc info1.sector_size in
          let rec write x =
            if x = 0 then Lwt.return (Ok ()) else begin
              Cstruct.memset sector x;
@@ -93,7 +96,7 @@ let test_write_read () =
            end in
          write 255 >>= fun x ->
          let () = or_failwith x in
-         let sector' = alloc info1.Block.sector_size in
+         let sector' = alloc info1.sector_size in
          let rec read x =
            if x = 0 then Lwt.return (Ok ()) else begin
              Cstruct.memset sector' x;
@@ -115,7 +118,7 @@ let test_buffer_wrong_length () =
       (fun file ->
          Block.connect file >>= fun device1 ->
          Block.get_info device1 >>= fun info1 ->
-         let sector = alloc info1.Block.sector_size in
+         let sector = alloc info1.sector_size in
          Block.write device1 0L [ Cstruct.shift sector 1 ] >>= function
          | Error _ -> Lwt.return ()
          | Ok () -> failwith "a write with a bad length succeeded"
@@ -152,12 +155,12 @@ let test_resize () =
     Lwt_unix.close fd >>= fun () ->
     Block.connect name >>= fun device ->
     Block.get_info device >>= fun info1 ->
-    assert_equal ~printer:Int64.to_string 0L info1.Block.size_sectors;
+    assert_equal ~printer:Int64.to_string 0L info1.size_sectors;
     Block.resize device 1L >>= function
     | Error _ -> failwith (Printf.sprintf "Block.resize %s failed" name)
     | Ok () ->
       Block.get_info device >>= fun info2 ->
-      assert_equal ~printer:Int64.to_string 1L info2.Block.size_sectors;
+      assert_equal ~printer:Int64.to_string 1L info2.size_sectors;
       return () in
   Lwt_main.run t
 
