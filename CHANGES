@@ -1,3 +1,6 @@
+2.5.0 (unreleased)
+* use MirageOS 3 error scheme & new dependencies; drop support for earlier versions
+
 2.4.0 (21-Sept-2016)
 * add optional arguments with safe defaults to `Block.connect`.
 * add a new Block.Config.t containing configuration parameters,
