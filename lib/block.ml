@@ -113,6 +113,9 @@ end
 
 type t = {
   mutable fd: Lwt_unix.file_descr option;
+  mutable seek_offset: int64;
+  (* a shadow copy of the fd's seek offset which avoids calling `lseek`
+     unnecessarily, speeding up sequential read and write *)
   m: Lwt_mutex.t;
   mutable info: Mirage_block.info;
   config: Config.t;
@@ -167,7 +170,8 @@ let of_config ({ Config.buffered; sync; path } as config) =
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
-      return ({ fd = Some fd; m;
+      let seek_offset = 0L in
+      return ({ fd = Some fd; seek_offset; m;
                 info = { Mirage_block.sector_size; size_sectors; read_write };
         config; use_fsync_after_write })
   with e ->
@@ -203,6 +207,18 @@ let get_info { info } = return info
 let really_read fd = Lwt_cstruct.complete (Lwt_cstruct.read fd)
 let really_write fd = Lwt_cstruct.complete (Lwt_cstruct.write fd)
 
+let read_into_buffer t fd buf =
+  really_read fd buf
+  >>= fun () ->
+  t.seek_offset <- Int64.(add t.seek_offset (of_int (Cstruct.len buf)));
+  Lwt.return_unit
+
+let write_from_buffer t fd buf =
+  really_write fd buf
+  >>= fun () ->
+  t.seek_offset <- Int64.(add t.seek_offset (of_int (Cstruct.len buf)));
+  Lwt.return_unit
+
 open Mirage_block
 
 let lwt_wrap_exn t op offset ?buffer f =
@@ -232,6 +248,12 @@ let lwt_wrap_exn t op offset ?buffer f =
         fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.Config.path offset (describe_buffer buffer)
     )
 
+let seek_already_locked x fd offset =
+  if x.seek_offset <> offset then begin
+    x.seek_offset <- offset;
+    Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET
+  end else Lwt.return offset
+
 let rec read x sector_start buffers = match buffers with
   | [] -> return (Ok ())
   | b :: bs ->
@@ -249,8 +271,8 @@ let rec read x sector_start buffers = match buffers with
                                 sector_start b_sectors x.info.size_sectors);
                     fail End_of_file
                   end else begin
-                    Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-                    really_read fd b
+                    seek_already_locked x fd offset >>= fun _ ->
+                    read_into_buffer x fd b
                   end
                ) >>= fun () ->
              return (Ok ())
@@ -279,8 +301,8 @@ let rec write x sector_start buffers = match buffers with
                                 sector_start b_sectors x.info.size_sectors);
                     fail End_of_file
                   end else begin
-                    Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-                    really_write fd b
+                    seek_already_locked x fd offset >>= fun _ ->
+                    write_from_buffer x fd b
                   end
                ) >>= fun () ->
              ( if x.use_fsync_after_write then Lwt_unix.fsync fd else Lwt.return () )
@@ -339,6 +361,7 @@ let seek_mapped t from =
            (fun () ->
               let fd = Lwt_unix.unix_file_descr fd in
               let offset = Raw.lseek_data fd offset in
+              t.seek_offset <- offset;
               return (Ok Int64.(div offset (of_int t.info.sector_size)))
            )
       )
@@ -354,6 +377,7 @@ let seek_unmapped t from =
            (fun () ->
               let fd = Lwt_unix.unix_file_descr fd in
               let offset = Raw.lseek_hole fd offset in
+              t.seek_offset <- offset;
               return (Ok Int64.(div offset (of_int t.info.sector_size)))
            )
       )
