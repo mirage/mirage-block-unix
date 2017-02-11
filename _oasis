@@ -18,6 +18,15 @@ Library mirage_block_unix
                       flush_stubs.c
   CCOpt:              -I $(pkg_lwt)
 
+Executable benchmark
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             benchmark.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, mirage-block-unix, cstruct, oUnit,
+                      io-page.unix, io-page
+
 Executable test
   Build$:             flag(tests)
   CompiledObject:     best
