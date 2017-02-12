@@ -24,7 +24,7 @@ Executable benchmark
   MainIs:             benchmark.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, mirage-block-unix, cstruct, oUnit,
+  BuildDepends:       lwt, lwt.unix, mirage-block-unix, cstruct,
                       io-page.unix, io-page, logs.fmt
 
 Executable test
