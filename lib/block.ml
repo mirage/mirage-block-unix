@@ -225,31 +225,33 @@ let write_from_buffer t fd buf =
 
 open Mirage_block
 
-let lwt_wrap_exn t op offset ?buffer f =
+let lwt_wrap_exn t op offset ?(buffers=[]) f =
   let fatalf fmt = Printf.ksprintf (fun s ->
       Log.err (fun f -> f "%s" s);
       return (Error (`Msg s))
     ) fmt in
-  let describe_buffer = function
-    | None -> ""
-    | Some x -> "with buffer of length " ^ (string_of_int (Cstruct.len x)) in
+  let describe_buffers buffers =
+    if buffers = []
+    then ""
+    else "with buffers of length [ " ^ (String.concat ", " (List.map (fun b -> string_of_int @@ Cstruct.len b) buffers)) ^ " ]" in
   (* Buffer must be a multiple of sectors in length *)
-  ( match buffer with
-    | None -> Lwt.return (Ok ())
-    | Some b ->
+  Lwt_list.fold_left_s (fun acc b -> match acc with
+    | Error e -> Lwt.return (Error e)
+    | Ok () ->
       let len = Cstruct.len b in
       if len mod t.info.sector_size <> 0
       then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.config.Config.path
       else Lwt.return (Ok ())
-  ) >>*= fun () ->
+  ) (Ok ()) buffers
+  >>*= fun () ->
   Lwt.catch f
     (function
       | End_of_file ->
-        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.Config.path offset (describe_buffer buffer)
+        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.Config.path offset (describe_buffers buffers)
       | Unix.Unix_error(code, fn, arg) ->
-        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.Config.path offset (describe_buffer buffer)
+        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.Config.path offset (describe_buffers buffers)
       | e ->
-        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.Config.path offset (describe_buffer buffer)
+        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.Config.path offset (describe_buffers buffers)
     )
 
 let seek_already_locked x fd offset =
@@ -301,7 +303,7 @@ let read x sector_start buffers =
                   sector_start len_sectors x.info.size_sectors);
       fail End_of_file
     end else begin
-      lwt_wrap_exn x "read" offset
+      lwt_wrap_exn x "read" offset ~buffers
         (fun () ->
           Lwt_mutex.with_lock x.m
             (fun () ->
@@ -348,7 +350,7 @@ let write x sector_start buffers =
                   sector_start len_sectors x.info.size_sectors);
       fail End_of_file
     end else begin
-      lwt_wrap_exn x "write" offset
+      lwt_wrap_exn x "write" offset ~buffers
         (fun () ->
           Lwt_mutex.with_lock x.m
             (fun () ->
