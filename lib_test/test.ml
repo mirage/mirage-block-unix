@@ -165,15 +165,18 @@ let test_resize () =
   Lwt_main.run t
 
 let test_flush () =
-  let t =
-    with_temp_file
-      (fun file ->
-         Block.connect file >>= fun device1 ->
-         Block.flush device1 >>= function
-         | Error _ -> failwith (Printf.sprintf "Block.flush %s failed" file)
-         | Ok () -> Block.disconnect device1
-      ) in
-  Lwt_main.run t
+  let t file =
+    let do_flush sync =
+       Block.connect ~sync file >>= fun device1 ->
+       Block.flush device1 >>= function
+       | Error _ -> failwith (Printf.sprintf "Block.flush %s failed" file)
+       | Ok () -> Block.disconnect device1 in
+    do_flush (Some `ToDrive)
+    >>= fun () ->
+    do_flush (Some `ToOS)
+    >>= fun () ->
+     do_flush None in
+  with_temp_file (fun file -> Lwt_main.run (t file))
 
 let test_parse_print_config config =
   let open Block.Config in
