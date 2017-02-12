@@ -87,7 +87,7 @@ module Config = struct
     path: string;
   }
 
-  let create ?(buffered = false) ?(sync = Some `ToDrive) path =
+  let create ?(buffered = false) ?(sync = Some `ToOS) path =
     { buffered; sync; path }
 
   let to_string t =
