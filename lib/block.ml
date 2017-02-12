@@ -291,20 +291,21 @@ module Cstructs = struct
 end
 
 let read x sector_start buffers =
-  match x with
-  | { fd = None } ->
-    return (Error `Disconnected)
-  | { fd = Some fd } ->
-    let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
-    let len = Cstructs.len buffers in
-    let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
-    if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
-      Log.err (fun f -> f "read beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
-                  sector_start len_sectors x.info.size_sectors);
-      fail End_of_file
-    end else begin
-      lwt_wrap_exn x "read" offset ~buffers
-        (fun () ->
+  let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
+  lwt_wrap_exn x "read" offset ~buffers
+    (fun () ->
+      match x with
+      | { fd = None } ->
+        return (Error `Disconnected)
+      | { fd = Some fd } ->
+        let len = Cstructs.len buffers in
+        let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
+        if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
+          Log.err (fun f -> f "read beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
+                      sector_start len_sectors x.info.size_sectors);
+          fail End_of_file
+        end else begin
+
           Lwt_mutex.with_lock x.m
             (fun () ->
               seek_already_locked x fd offset >>= fun _ ->
@@ -332,26 +333,26 @@ let read x sector_start buffers =
               >>= fun () ->
               Lwt.return (Ok ())
             )
-        )
-    end
+        end
+    )
 
 let write x sector_start buffers =
-  match x with
-  | { fd = None } ->
-    return (Error `Disconnected)
-  | { info = { read_write = false } } ->
-    return (Error `Is_read_only)
-  | { fd = Some fd } ->
-    let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
-    let len = Cstructs.len buffers in
-    let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
-    if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
-      Log.err (fun f -> f "write beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
-                  sector_start len_sectors x.info.size_sectors);
-      fail End_of_file
-    end else begin
-      lwt_wrap_exn x "write" offset ~buffers
-        (fun () ->
+  let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
+  lwt_wrap_exn x "write" offset ~buffers
+    (fun () ->
+      match x with
+      | { fd = None } ->
+        return (Error `Disconnected)
+      | { info = { read_write = false } } ->
+        return (Error `Is_read_only)
+      | { fd = Some fd } ->
+        let len = Cstructs.len buffers in
+        let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
+        if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
+          Log.err (fun f -> f "write beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
+                      sector_start len_sectors x.info.size_sectors);
+          fail End_of_file
+        end else begin
           Lwt_mutex.with_lock x.m
             (fun () ->
               seek_already_locked x fd offset >>= fun _ ->
@@ -381,8 +382,8 @@ let write x sector_start buffers =
               >>= fun () ->
               Lwt.return (Ok ())
             )
-        )
-    end
+        end
+    )
 
 let resize t new_size_sectors =
   let new_size_bytes = Int64.(mul new_size_sectors (of_int t.info.sector_size)) in
