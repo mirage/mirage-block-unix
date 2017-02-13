@@ -44,6 +44,7 @@
 struct job_flush {
   struct lwt_unix_job job;
   HANDLE fd;
+  int ask_drive_to_flush; /* only available on APPLE */
   DWORD errno_copy;
 };
 
@@ -56,7 +57,11 @@ static void worker_flush(struct job_flush *job)
   }
 #else
   #if defined(__APPLE__)
-    result = fcntl(job->fd, F_FULLFSYNC);
+    if (job->ask_drive_to_flush) {
+      result = fcntl(job->fd, F_FULLFSYNC);
+    } else {
+      result = fsync(job->fd);
+    }
   #else
     result = fsync(job->fd);
   #endif
@@ -87,11 +92,12 @@ static value result_flush(struct job_flush *job)
 }
 
 CAMLprim
-value mirage_block_unix_flush_job(value handle)
+value mirage_block_unix_flush_job(value handle, value ask_drive_to_flush)
 {
-  CAMLparam1(handle);
+  CAMLparam2(handle, ask_drive_to_flush);
   LWT_UNIX_INIT_JOB(job, flush, 0);
   job->fd = (HANDLE)Handle_val(handle);
+  job->ask_drive_to_flush = Bool_val(ask_drive_to_flush);
   job->errno_copy = 0;
   CAMLreturn(lwt_unix_alloc_job(&(job->job)));
 }

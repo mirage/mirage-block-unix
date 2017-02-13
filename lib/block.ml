@@ -65,19 +65,35 @@ type 'a io = 'a Lwt.t
 type page_aligned_buffer = Cstruct.t
 
 module Config = struct
+  type sync_behaviour = [
+    | `ToOS
+    | `ToDrive
+  ]
+
+  let sync_behaviour_of_string = function
+    | "0" | "none" -> None
+    | "1" | "drive" -> Some `ToDrive
+    | "os" -> Some `ToOS
+    | _ -> None
+
+  let string_of_sync = function
+    | None -> "none"
+    | Some `ToDrive -> "drive"
+    | Some `ToOS -> "os"
+
   type t = {
     buffered: bool;
-    sync: bool;
+    sync: sync_behaviour option;
     path: string;
   }
 
-  let create ?(buffered = false) ?(sync = true) path =
+  let create ?(buffered = false) ?(sync = Some `ToOS) path =
     { buffered; sync; path }
 
   let to_string t =
     let query = [
       "buffered", [ if t.buffered then "1" else "0" ];
-      "sync",     [ if t.sync then "1" else "0" ];
+      "sync",     [ string_of_sync t.sync ];
     ] in
     let u = Uri.make ~scheme:"file" ~path:t.path ~query () in
     Uri.to_string u
@@ -88,11 +104,11 @@ module Config = struct
     | Some "file" ->
       let query = Uri.query u in
       let buffered = try List.assoc "buffered" query = [ "1" ] with Not_found -> false in
-      let sync     = try List.assoc "sync"     query = [ "1" ] with Not_found -> false in
+      let sync     = try sync_behaviour_of_string @@ List.hd @@ List.assoc "sync" query with Not_found -> None in
       let path = Uri.(pct_decode @@ path u) in
       Ok { buffered; sync; path }
     | _ ->
-      Error (`Msg "Config.to_string expected a string of the form file://<path>?sync=(0|1)&buffered=(0|1)")
+      Error (`Msg "Config.to_string expected a string of the form file://<path>?sync=(none|os|drive)&buffered=(0|1)")
 end
 
 type t = {
@@ -101,7 +117,6 @@ type t = {
   mutable info: Mirage_block.info;
   config: Config.t;
   use_fsync_after_write: bool;
-  use_fsync_on_flush: bool;
 }
 
 let to_config { config } = config
@@ -152,10 +167,9 @@ let of_config ({ Config.buffered; sync; path } as config) =
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
-      let use_fsync_on_flush = sync in
       return ({ fd = Some fd; m;
                 info = { Mirage_block.sector_size; size_sectors; read_write };
-        config; use_fsync_after_write; use_fsync_on_flush })
+        config; use_fsync_after_write })
   with e ->
     Log.err (fun f -> f "connect %s: failed to open file" path);
     fail_with (Printf.sprintf "connect %s: failed to open file" path)
@@ -297,7 +311,7 @@ let resize t new_size_sectors =
              )
         )
 
-external flush_job: Unix.file_descr -> unit Lwt_unix.job = "mirage_block_unix_flush_job"
+external flush_job: Unix.file_descr -> bool -> unit Lwt_unix.job = "mirage_block_unix_flush_job"
 
 let flush t =
   match t.fd with
@@ -305,9 +319,11 @@ let flush t =
   | Some fd ->
     lwt_wrap_exn t "fsync" 0L
       (fun () ->
-         ( if t.use_fsync_on_flush
-           then Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd))
-           else Lwt.return_unit )
+         ( match t.config.Config.sync with
+           | None -> Lwt.return_unit
+           | Some `ToOS -> Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd) false)
+           | Some `ToDrive -> Lwt_unix.run_job (flush_job (Lwt_unix.unix_file_descr fd) true)
+         )
          >>= fun () ->
          return (Ok ())
       )

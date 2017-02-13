@@ -33,14 +33,21 @@ val blkgetsize: string -> Unix.file_descr -> (int64, error) result
     message. *)
 
 module Config: sig
+  type sync_behaviour = [
+    | `ToOS (** flush to the operating system, not necessarily the drive *)
+    | `ToDrive (** flush to the drive *)
+  ]
+
+  val string_of_sync: sync_behaviour option -> string
+
   type t = {
     buffered: bool; (** true if I/O hits the OS disk caches, false if "direct" *)
-    sync: bool; (** true if [flush] flushes all caches, including disk drive caches *)
+    sync: sync_behaviour option;
     path: string; (** path to the underlying file *)
   }
   (** Configuration of a device *)
 
-  val create: ?buffered:bool -> ?sync:bool -> string -> t
+  val create: ?buffered:bool -> ?sync:(sync_behaviour option) -> string -> t
   (** [create ?buffered ?sync path] constructs a configuration referencing the
       file stored at [path]/ *)
 
@@ -52,7 +59,7 @@ module Config: sig
   (** Parse the result of a previous [to_string] invocation *)
 end
 
-val connect : ?buffered:bool -> ?sync:bool -> string -> t io
+val connect : ?buffered:bool -> ?sync:(Config.sync_behaviour option) -> string -> t io
 (** [connect ?buffered ?sync path] connects to a block device on the filesystem
     at [path]. By default I/O is unbuffered and fully synchronous. These defaults
     can be changed by supplying the optional arguments [~buffered:true] and
