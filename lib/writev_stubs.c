@@ -19,7 +19,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifndef _WIN32
 #include <sys/uio.h>
+#endif
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
