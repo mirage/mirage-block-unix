@@ -1,6 +1,6 @@
 OASISFormat: 0.4
 Name:        mirage-block-unix
-Version:     2.5.0
+Version:     2.6.0
 Synopsis:    Mirage block driver for Unix
 Authors:     David Scott
 License:     ISC

@@ -1,4 +1,7 @@
-2.5.0 (unreleased)
+2.6.0 (2017-02-13)
+* allow fsync to be used in preference to fcntl for flushing on macOS
+
+2.5.0 (2017-01-17)
 * use MirageOS 3 error scheme & new dependencies; drop support for earlier versions
 
 2.4.0 (21-Sept-2016)
