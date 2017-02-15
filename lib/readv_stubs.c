@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #ifndef _WIN32
 #include <sys/uio.h>
 #endif
@@ -46,6 +47,7 @@ struct job_readv {
 static void worker_readv(struct job_readv *job)
 {
   job->ret = readv(job->fd, job->iovec, job->length);
+  job->errno_copy = errno;
   free(job->iovec);
   job->iovec = NULL;
 }
