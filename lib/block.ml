@@ -211,18 +211,6 @@ let get_info { info } = return info
 let really_read fd = Lwt_cstruct.complete (Lwt_cstruct.read fd)
 let really_write fd = Lwt_cstruct.complete (Lwt_cstruct.write fd)
 
-let read_into_buffer t fd buf =
-  really_read fd buf
-  >>= fun () ->
-  t.seek_offset <- Int64.(add t.seek_offset (of_int (Cstruct.len buf)));
-  Lwt.return_unit
-
-let write_from_buffer t fd buf =
-  really_write fd buf
-  >>= fun () ->
-  t.seek_offset <- Int64.(add t.seek_offset (of_int (Cstruct.len buf)));
-  Lwt.return_unit
-
 open Mirage_block
 
 let lwt_wrap_exn t op offset ?(buffers=[]) f =
@@ -313,8 +301,9 @@ let read x sector_start buffers =
                   let rec loop = function
                     | [] -> Lwt.return_unit
                     | b :: bs ->
-                      read_into_buffer x fd b
+                      really_read fd b
                       >>= fun () ->
+                      x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
                       loop bs in
                   loop buffers
                 end else begin
@@ -360,8 +349,9 @@ let write x sector_start buffers =
                   let rec loop = function
                     | [] -> Lwt.return_unit
                     | b :: bs ->
-                      write_from_buffer x fd b
+                      really_write fd b
                       >>= fun () ->
+                      x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
                       loop bs in
                   loop buffers
                 end else begin
