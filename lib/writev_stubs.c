@@ -20,6 +20,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 #ifndef _WIN32
 #include <sys/uio.h>
 #endif
@@ -38,7 +39,7 @@
 struct job_writev {
   struct lwt_unix_job job;
   int fd;
-  struct iovec *iovec;
+  struct iovec iovec[IOV_MAX];
   int length;
   int ret;
   int errno_copy;
@@ -48,8 +49,6 @@ static void worker_writev(struct job_writev *job)
 {
   job->ret = writev(job->fd, job->iovec, job->length);
   job->errno_copy = errno;
-  free(job->iovec);
-  job->iovec = NULL;
 }
 
 static value result_writev(struct job_writev *job)
@@ -78,11 +77,14 @@ value mirage_block_unix_writev_job(value fd, value val_list)
   job->errno_copy = 0;
   job->ret = 0;
   next = val_list;
+  /* Calculate the length of the val_list */
   job->length = 0;
   for (next = val_list; next != Val_emptylist; next = Field(next, 1))
     job->length++;
+  /* Only copy up to the iovec array size */
+  if (job->length > IOV_MAX)
+    job->length = IOV_MAX;
 
-  job->iovec = (struct iovec*)malloc(sizeof(struct iovec) * job->length);
   next = val_list;
   for (i = 0; i < job->length; i ++) {
     head = Field(next, 0);
