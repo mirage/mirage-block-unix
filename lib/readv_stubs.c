@@ -23,7 +23,8 @@
 #ifndef _WIN32
 #include <sys/uio.h>
 #include <limits.h>
-#else
+#endif
+#ifndef IOV_MAX
 #define IOV_MAX 16 /* never used */
 #endif
 
