@@ -23,6 +23,9 @@
 #include <limits.h>
 #ifndef _WIN32
 #include <sys/uio.h>
+#include <limits.h>
+#else
+#define IOV_MAX 16 /* never used */
 #endif
 
 #include <caml/mlvalues.h>
