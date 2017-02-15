@@ -293,32 +293,37 @@ let read x sector_start buffers =
                       sector_start len_sectors x.info.size_sectors);
           fail End_of_file
         end else begin
-
           Lwt_mutex.with_lock x.m
             (fun () ->
               seek_already_locked x fd offset >>= fun _ ->
-              ( if is_win32 || List.length buffers = 1 then begin
-                  let rec loop = function
-                    | [] -> Lwt.return_unit
-                    | b :: bs ->
-                      really_read fd b
+              Lwt.catch
+                (fun () ->
+                  ( if is_win32 || List.length buffers = 1 then begin
+                      let rec loop = function
+                        | [] -> Lwt.return_unit
+                        | b :: bs ->
+                          really_read fd b
+                          >>= fun () ->
+                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
+                          loop bs in
+                      loop buffers
+                    end else begin
+                      let rec loop remaining =
+                        if Cstructs.len remaining = 0 then Lwt.return_unit else begin
+                          let iovec = Cstructs.to_iovec remaining in
+                          Lwt_unix.run_job (Raw.readv_job (Lwt_unix.unix_file_descr fd) iovec)
+                          >>= fun n ->
+                          loop (Cstructs.shift remaining n)
+                        end in
+                      loop buffers
                       >>= fun () ->
-                      x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
-                      loop bs in
-                  loop buffers
-                end else begin
-                  let rec loop remaining =
-                    if Cstructs.len remaining = 0 then Lwt.return_unit else begin
-                      let iovec = Cstructs.to_iovec remaining in
-                      Lwt_unix.run_job (Raw.readv_job (Lwt_unix.unix_file_descr fd) iovec)
-                      >>= fun n ->
-                      loop (Cstructs.shift remaining n)
-                    end in
-                  loop buffers
-                  >>= fun () ->
-                  x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
-                  Lwt.return_unit
-                end )
+                      x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
+                      Lwt.return_unit
+                    end )
+                ) (fun e ->
+                  x.seek_offset <- -1L; (* actual file pointer is undefined now *)
+                  Lwt.fail e
+                )
               >>= fun () ->
               Lwt.return (Ok ())
             )
@@ -345,28 +350,34 @@ let write x sector_start buffers =
           Lwt_mutex.with_lock x.m
             (fun () ->
               seek_already_locked x fd offset >>= fun _ ->
-              ( if is_win32 || List.length buffers = 1 then begin
-                  let rec loop = function
-                    | [] -> Lwt.return_unit
-                    | b :: bs ->
-                      really_write fd b
+              Lwt.catch
+                (fun () ->
+                  ( if is_win32 || List.length buffers = 1 then begin
+                      let rec loop = function
+                        | [] -> Lwt.return_unit
+                        | b :: bs ->
+                          really_write fd b
+                          >>= fun () ->
+                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
+                          loop bs in
+                      loop buffers
+                    end else begin
+                      let rec loop remaining =
+                        if Cstructs.len remaining = 0 then Lwt.return_unit else begin
+                          let iovec = Cstructs.to_iovec remaining in
+                          Lwt_unix.run_job (Raw.writev_job (Lwt_unix.unix_file_descr fd) iovec)
+                          >>= fun n ->
+                          loop (Cstructs.shift remaining n)
+                        end in
+                      loop buffers
                       >>= fun () ->
-                      x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
-                      loop bs in
-                  loop buffers
-                end else begin
-                  let rec loop remaining =
-                    if Cstructs.len remaining = 0 then Lwt.return_unit else begin
-                      let iovec = Cstructs.to_iovec remaining in
-                      Lwt_unix.run_job (Raw.writev_job (Lwt_unix.unix_file_descr fd) iovec)
-                      >>= fun n ->
-                      loop (Cstructs.shift remaining n)
-                    end in
-                  loop buffers
-                  >>= fun () ->
-                  x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
-                  Lwt.return_unit
-                end )
+                      x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
+                      Lwt.return_unit
+                    end )
+                ) (fun e ->
+                  x.seek_offset <- -1L; (* actual file pointer is undefined now *)
+                  Lwt.fail e;
+                )
               >>= fun () ->
               ( if x.use_fsync_after_write then Lwt_unix.fsync fd else Lwt.return () )
               >>= fun () ->
