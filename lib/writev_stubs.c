@@ -109,3 +109,9 @@ value mirage_block_unix_writev_job(value fd, value val_list)
 #endif
   CAMLreturn(lwt_unix_alloc_job(&(job->job)));
 }
+
+CAMLprim
+value mirage_block_unix_get_iov_len()
+{
+  return Val_int(IOV_MAX);
+}

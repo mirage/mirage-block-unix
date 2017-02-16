@@ -60,6 +60,8 @@ module Raw = struct
   external writev_job: Unix.file_descr -> (buffer * int * int) list -> int Lwt_unix.job = "mirage_block_unix_writev_job"
   external readv_job: Unix.file_descr -> (buffer * int * int) list -> int Lwt_unix.job = "mirage_block_unix_readv_job"
 
+  external iov_len: unit -> int = "mirage_block_unix_get_iov_len"
+
 end
 
 open Lwt
@@ -278,6 +280,17 @@ module Cstructs = struct
     List.map (fun t -> t.Cstruct.buffer, t.Cstruct.off, t.Cstruct.len) ts
 end
 
+let iov_len = Raw.iov_len ()
+
+let split_list xs maxlen =
+  let rec loop (acc, l, n) xs =
+    if n = maxlen
+    then loop ((List.rev l) :: acc, [], 0) xs
+    else match xs with
+    | [] -> List.rev ((List.rev l) :: acc)
+    | x :: xs -> loop (acc, x :: l, n + 1) xs in
+  loop ([], [], 0) xs
+
 let read x sector_start buffers =
   let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
   lwt_wrap_exn x "read" offset ~buffers
@@ -308,14 +321,16 @@ let read x sector_start buffers =
                           loop bs in
                       loop buffers
                     end else begin
-                      let rec loop remaining =
-                        if Cstructs.len remaining = 0 then Lwt.return_unit else begin
-                          let iovec = Cstructs.to_iovec remaining in
-                          Lwt_unix.run_job (Raw.readv_job (Lwt_unix.unix_file_descr fd) iovec)
-                          >>= fun n ->
-                          loop (Cstructs.shift remaining n)
-                        end in
-                      loop buffers
+                      Lwt_list.iter_s (fun buffers ->
+                        let rec loop remaining =
+                          if Cstructs.len remaining = 0 then Lwt.return_unit else begin
+                            let iovec = Cstructs.to_iovec remaining in
+                            Lwt_unix.run_job (Raw.readv_job (Lwt_unix.unix_file_descr fd) iovec)
+                            >>= fun n ->
+                            loop (Cstructs.shift remaining n)
+                          end in
+                        loop buffers
+                      ) (split_list buffers iov_len)
                       >>= fun () ->
                       x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
                       Lwt.return_unit
@@ -362,14 +377,16 @@ let write x sector_start buffers =
                           loop bs in
                       loop buffers
                     end else begin
-                      let rec loop remaining =
-                        if Cstructs.len remaining = 0 then Lwt.return_unit else begin
-                          let iovec = Cstructs.to_iovec remaining in
-                          Lwt_unix.run_job (Raw.writev_job (Lwt_unix.unix_file_descr fd) iovec)
-                          >>= fun n ->
-                          loop (Cstructs.shift remaining n)
-                        end in
-                      loop buffers
+                      Lwt_list.iter_s (fun buffers ->
+                        let rec loop remaining =
+                          if Cstructs.len remaining = 0 then Lwt.return_unit else begin
+                            let iovec = Cstructs.to_iovec remaining in
+                            Lwt_unix.run_job (Raw.writev_job (Lwt_unix.unix_file_descr fd) iovec)
+                            >>= fun n ->
+                            loop (Cstructs.shift remaining n)
+                          end in
+                        loop buffers
+                      ) (split_list buffers iov_len)
                       >>= fun () ->
                       x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
                       Lwt.return_unit
