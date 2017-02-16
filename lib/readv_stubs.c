@@ -42,7 +42,9 @@
 struct job_readv {
   struct lwt_unix_job job;
   int fd;
+#ifndef _WIN32
   struct iovec iovec[IOV_MAX];
+#endif
   int length;
   int ret;
   int errno_copy;
@@ -50,8 +52,13 @@ struct job_readv {
 
 static void worker_readv(struct job_readv *job)
 {
+#ifndef _WIN32
   job->ret = readv(job->fd, job->iovec, job->length);
   job->errno_copy = errno;
+#else
+  job->ret = -1;
+  job->errno_copy = ENOTSUP;
+#endif
 }
 
 static value result_readv(struct job_readv *job)
@@ -99,6 +106,6 @@ value mirage_block_unix_readv_job(value fd, value val_list)
     job->iovec[i].iov_len = Long_val(val_len);
     next = Field(next, 1);
   }
-  #endif
+#endif
   CAMLreturn(lwt_unix_alloc_job(&(job->job)));
 }
