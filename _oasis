@@ -15,8 +15,17 @@ Library mirage_block_unix
   BuildDepends:       cstruct (>= 1.3.0), cstruct.lwt, lwt, lwt.unix, logs,
                       uri, rresult, mirage-block-lwt
   CSources:           odirect_stubs.c, blkgetsize_stubs.c, lseekhole_stubs.c,
-                      flush_stubs.c
+                      flush_stubs.c, writev_stubs.c, readv_stubs.c
   CCOpt:              -I $(pkg_lwt)
+
+Executable benchmark
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             benchmark.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, mirage-block-unix, cstruct,
+                      io-page.unix, io-page, logs.fmt
 
 Executable test
   Build$:             flag(tests)

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2366dbb33ea26bdcb251eb22e8864b99)
+# DO NOT EDIT (digest: 240ac870d0fd731339da436e65fb4664)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -21,6 +21,8 @@ true: annot, bin_annot
 "lib/blkgetsize_stubs.c": oasis_library_mirage_block_unix_ccopt
 "lib/lseekhole_stubs.c": oasis_library_mirage_block_unix_ccopt
 "lib/flush_stubs.c": oasis_library_mirage_block_unix_ccopt
+"lib/writev_stubs.c": oasis_library_mirage_block_unix_ccopt
+"lib/readv_stubs.c": oasis_library_mirage_block_unix_ccopt
 <lib/mirage_block_unix.{cma,cmxa}>: use_libmirage_block_unix_stubs
 <lib/*.ml{,i,y}>: pkg_cstruct
 <lib/*.ml{,i,y}>: pkg_cstruct.lwt
@@ -62,6 +64,37 @@ true: annot, bin_annot
 "lib/flush_stubs.c": pkg_mirage-block-lwt
 "lib/flush_stubs.c": pkg_rresult
 "lib/flush_stubs.c": pkg_uri
+"lib/writev_stubs.c": pkg_cstruct
+"lib/writev_stubs.c": pkg_cstruct.lwt
+"lib/writev_stubs.c": pkg_logs
+"lib/writev_stubs.c": pkg_lwt
+"lib/writev_stubs.c": pkg_lwt.unix
+"lib/writev_stubs.c": pkg_mirage-block-lwt
+"lib/writev_stubs.c": pkg_rresult
+"lib/writev_stubs.c": pkg_uri
+"lib/readv_stubs.c": pkg_cstruct
+"lib/readv_stubs.c": pkg_cstruct.lwt
+"lib/readv_stubs.c": pkg_logs
+"lib/readv_stubs.c": pkg_lwt
+"lib/readv_stubs.c": pkg_lwt.unix
+"lib/readv_stubs.c": pkg_mirage-block-lwt
+"lib/readv_stubs.c": pkg_rresult
+"lib/readv_stubs.c": pkg_uri
+# Executable benchmark
+<lib_test/benchmark.{native,byte}>: pkg_cstruct
+<lib_test/benchmark.{native,byte}>: pkg_cstruct.lwt
+<lib_test/benchmark.{native,byte}>: pkg_io-page
+<lib_test/benchmark.{native,byte}>: pkg_io-page.unix
+<lib_test/benchmark.{native,byte}>: pkg_logs
+<lib_test/benchmark.{native,byte}>: pkg_logs.fmt
+<lib_test/benchmark.{native,byte}>: pkg_lwt
+<lib_test/benchmark.{native,byte}>: pkg_lwt.unix
+<lib_test/benchmark.{native,byte}>: pkg_mirage-block-lwt
+<lib_test/benchmark.{native,byte}>: pkg_rresult
+<lib_test/benchmark.{native,byte}>: pkg_uri
+<lib_test/benchmark.{native,byte}>: use_mirage_block_unix
+<lib_test/*.ml{,i,y}>: pkg_logs.fmt
+<lib_test/benchmark.{native,byte}>: custom
 # Executable test
 <lib_test/test.{native,byte}>: pkg_cstruct
 <lib_test/test.{native,byte}>: pkg_cstruct.lwt

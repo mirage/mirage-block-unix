@@ -56,6 +56,12 @@ module Raw = struct
 
   external lseek_hole : Unix.file_descr -> int64 -> int64 = "stub_lseek_hole_64"
 
+  type buffer = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+  external writev_job: Unix.file_descr -> (buffer * int * int) list -> int Lwt_unix.job = "mirage_block_unix_writev_job"
+  external readv_job: Unix.file_descr -> (buffer * int * int) list -> int Lwt_unix.job = "mirage_block_unix_readv_job"
+
+  external iov_len: unit -> int = "mirage_block_unix_get_iov_len"
+
 end
 
 open Lwt
@@ -113,6 +119,9 @@ end
 
 type t = {
   mutable fd: Lwt_unix.file_descr option;
+  mutable seek_offset: int64;
+  (* a shadow copy of the fd's seek offset which avoids calling `lseek`
+     unnecessarily, speeding up sequential read and write *)
   m: Lwt_mutex.t;
   mutable info: Mirage_block.info;
   config: Config.t;
@@ -167,7 +176,8 @@ let of_config ({ Config.buffered; sync; path } as config) =
       let size_sectors = Int64.(div x (of_int sector_size)) in
       let fd = Lwt_unix.of_unix_file_descr fd in
       let m = Lwt_mutex.create () in
-      return ({ fd = Some fd; m;
+      let seek_offset = 0L in
+      return ({ fd = Some fd; seek_offset; m;
                 info = { Mirage_block.sector_size; size_sectors; read_write };
         config; use_fsync_after_write })
   with e ->
@@ -205,93 +215,193 @@ let really_write fd = Lwt_cstruct.complete (Lwt_cstruct.write fd)
 
 open Mirage_block
 
-let lwt_wrap_exn t op offset ?buffer f =
+let lwt_wrap_exn t op offset ?(buffers=[]) f =
   let fatalf fmt = Printf.ksprintf (fun s ->
       Log.err (fun f -> f "%s" s);
       return (Error (`Msg s))
     ) fmt in
-  let describe_buffer = function
-    | None -> ""
-    | Some x -> "with buffer of length " ^ (string_of_int (Cstruct.len x)) in
+  let describe_buffers buffers =
+    if buffers = []
+    then ""
+    else "with buffers of length [ " ^ (String.concat ", " (List.map (fun b -> string_of_int @@ Cstruct.len b) buffers)) ^ " ]" in
   (* Buffer must be a multiple of sectors in length *)
-  ( match buffer with
-    | None -> Lwt.return (Ok ())
-    | Some b ->
+  Lwt_list.fold_left_s (fun acc b -> match acc with
+    | Error e -> Lwt.return (Error e)
+    | Ok () ->
       let len = Cstruct.len b in
       if len mod t.info.sector_size <> 0
       then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.config.Config.path
       else Lwt.return (Ok ())
-  ) >>*= fun () ->
+  ) (Ok ()) buffers
+  >>*= fun () ->
   Lwt.catch f
     (function
       | End_of_file ->
-        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.Config.path offset (describe_buffer buffer)
+        fatalf "%s: End_of_file at file %s offset %Ld %s" op t.config.Config.path offset (describe_buffers buffers)
       | Unix.Unix_error(code, fn, arg) ->
-        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.Config.path offset (describe_buffer buffer)
+        fatalf "%s: %s in %s '%s' at file %s offset %Ld %s" op (Unix.error_message code) fn arg t.config.Config.path offset (describe_buffers buffers)
       | e ->
-        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.Config.path offset (describe_buffer buffer)
+        fatalf "%s: %s at file %s offset %Ld %s" op (Printexc.to_string e) t.config.Config.path offset (describe_buffers buffers)
     )
 
-let rec read x sector_start buffers = match buffers with
-  | [] -> return (Ok ())
-  | b :: bs ->
-    begin match x.fd with
-      | None -> return (Error `Disconnected)
-      | Some fd ->
-        let offset = Int64.(mul sector_start (of_int x.info.sector_size))  in
-        lwt_wrap_exn x "read" offset ~buffer:b
-          (fun () ->
-             Lwt_mutex.with_lock x.m
-               (fun () ->
-                  let b_sectors = (Cstruct.len b) / x.info.sector_size in
-                  if Int64.(add sector_start (of_int b_sectors) > x.info.size_sectors) then begin
-                    Log.err (fun f -> f "read beyond end of file: sector_start (%Ld) + b (%d) > size_sectors (%Ld)"
-                                sector_start b_sectors x.info.size_sectors);
-                    fail End_of_file
-                  end else begin
-                    Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-                    really_read fd b
-                  end
-               ) >>= fun () ->
-             return (Ok ())
-          ) >>= function
-        | Ok () -> read x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
-        | Error x -> return (Error x)
-    end
+let seek_already_locked x fd offset =
+  if x.seek_offset <> offset then begin
+    x.seek_offset <- offset;
+    Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET
+  end else Lwt.return offset
 
-let rec write x sector_start buffers = match buffers with
-  | [] -> return (Ok ())
-  | b :: bs ->
-    begin match x with
+module Cstructs = struct
+  type t = Cstruct.t list
+  (** A list of buffers, like a Unix iovec *)
+
+  let pp_t ppf t =
+    List.iter (fun t ->
+      Format.fprintf ppf "[%d,%d](%d)" t.Cstruct.off t.Cstruct.len (Bigarray.Array1.dim t.Cstruct.buffer)
+    ) t
+
+  let len = List.fold_left (fun acc c -> Cstruct.len c + acc) 0
+
+  let err fmt =
+    let b = Buffer.create 20 in                         (* for thread safety. *)
+    let ppf = Format.formatter_of_buffer b in
+    let k ppf = Format.pp_print_flush ppf (); invalid_arg (Buffer.contents b) in
+    Format.kfprintf k ppf fmt
+
+  let rec shift t x =
+    if x = 0 then t else match t with
+    | [] -> err "Cstructs.shift %a %d" pp_t t x
+    | y :: ys ->
+      let y' = Cstruct.len y in
+      if y' > x
+      then Cstruct.shift y x :: ys
+      else shift ys (x - y')
+
+  let to_iovec ts =
+    List.map (fun t -> t.Cstruct.buffer, t.Cstruct.off, t.Cstruct.len) ts
+end
+
+let iov_len = Raw.iov_len ()
+
+let split_list xs maxlen =
+  let rec loop (acc, l, n) xs =
+    if n = maxlen
+    then loop ((List.rev l) :: acc, [], 0) xs
+    else match xs with
+    | [] -> List.rev ((List.rev l) :: acc)
+    | x :: xs -> loop (acc, x :: l, n + 1) xs in
+  loop ([], [], 0) xs
+
+let read x sector_start buffers =
+  let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
+  lwt_wrap_exn x "read" offset ~buffers
+    (fun () ->
+      match x with
+      | { fd = None } ->
+        return (Error `Disconnected)
+      | { fd = Some fd } ->
+        let len = Cstructs.len buffers in
+        let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
+        if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
+          Log.err (fun f -> f "read beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
+                      sector_start len_sectors x.info.size_sectors);
+          fail End_of_file
+        end else begin
+          Lwt_mutex.with_lock x.m
+            (fun () ->
+              seek_already_locked x fd offset >>= fun _ ->
+              Lwt.catch
+                (fun () ->
+                  ( if is_win32 || List.length buffers = 1 then begin
+                      let rec loop = function
+                        | [] -> Lwt.return_unit
+                        | b :: bs ->
+                          really_read fd b
+                          >>= fun () ->
+                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
+                          loop bs in
+                      loop buffers
+                    end else begin
+                      Lwt_list.iter_s (fun buffers ->
+                        let rec loop remaining =
+                          if Cstructs.len remaining = 0 then Lwt.return_unit else begin
+                            let iovec = Cstructs.to_iovec remaining in
+                            Lwt_unix.run_job (Raw.readv_job (Lwt_unix.unix_file_descr fd) iovec)
+                            >>= fun n ->
+                            loop (Cstructs.shift remaining n)
+                          end in
+                        loop buffers
+                      ) (split_list buffers iov_len)
+                      >>= fun () ->
+                      x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
+                      Lwt.return_unit
+                    end )
+                ) (fun e ->
+                  x.seek_offset <- -1L; (* actual file pointer is undefined now *)
+                  Lwt.fail e
+                )
+              >>= fun () ->
+              Lwt.return (Ok ())
+            )
+        end
+    )
+
+let write x sector_start buffers =
+  let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
+  lwt_wrap_exn x "write" offset ~buffers
+    (fun () ->
+      match x with
       | { fd = None } ->
         return (Error `Disconnected)
       | { info = { read_write = false } } ->
         return (Error `Is_read_only)
       | { fd = Some fd } ->
-        let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
-        lwt_wrap_exn x "write" offset ~buffer:b
-          (fun () ->
-             Lwt_mutex.with_lock x.m
-               (fun () ->
-                  let b_sectors = (Cstruct.len b) / x.info.sector_size in
-                  if Int64.(add sector_start (of_int b_sectors) > x.info.size_sectors) then begin
-                    Log.err (fun f -> f "write beyond end of file: sector_start (%Ld) + b (%d) > size_sectors (%Ld)"
-                                sector_start b_sectors x.info.size_sectors);
-                    fail End_of_file
-                  end else begin
-                    Lwt_unix.LargeFile.lseek fd offset Unix.SEEK_SET >>= fun _ ->
-                    really_write fd b
-                  end
-               ) >>= fun () ->
-             ( if x.use_fsync_after_write then Lwt_unix.fsync fd else Lwt.return () )
-             >>= fun () ->
-             return (Ok ())
-          ) >>= function
-        | Ok () ->
-          write x Int64.(add sector_start (div (of_int (Cstruct.len b)) 512L)) bs
-        | Error x ->
-          return (Error x)
-    end
+        let len = Cstructs.len buffers in
+        let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
+        if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
+          Log.err (fun f -> f "write beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
+                      sector_start len_sectors x.info.size_sectors);
+          fail End_of_file
+        end else begin
+          Lwt_mutex.with_lock x.m
+            (fun () ->
+              seek_already_locked x fd offset >>= fun _ ->
+              Lwt.catch
+                (fun () ->
+                  ( if is_win32 || List.length buffers = 1 then begin
+                      let rec loop = function
+                        | [] -> Lwt.return_unit
+                        | b :: bs ->
+                          really_write fd b
+                          >>= fun () ->
+                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
+                          loop bs in
+                      loop buffers
+                    end else begin
+                      Lwt_list.iter_s (fun buffers ->
+                        let rec loop remaining =
+                          if Cstructs.len remaining = 0 then Lwt.return_unit else begin
+                            let iovec = Cstructs.to_iovec remaining in
+                            Lwt_unix.run_job (Raw.writev_job (Lwt_unix.unix_file_descr fd) iovec)
+                            >>= fun n ->
+                            loop (Cstructs.shift remaining n)
+                          end in
+                        loop buffers
+                      ) (split_list buffers iov_len)
+                      >>= fun () ->
+                      x.seek_offset <- Int64.add x.seek_offset (Int64.of_int len);
+                      Lwt.return_unit
+                    end )
+                ) (fun e ->
+                  x.seek_offset <- -1L; (* actual file pointer is undefined now *)
+                  Lwt.fail e;
+                )
+              >>= fun () ->
+              ( if x.use_fsync_after_write then Lwt_unix.fsync fd else Lwt.return () )
+              >>= fun () ->
+              Lwt.return (Ok ())
+            )
+        end
+    )
 
 let resize t new_size_sectors =
   let new_size_bytes = Int64.(mul new_size_sectors (of_int t.info.sector_size)) in
@@ -339,6 +449,7 @@ let seek_mapped t from =
            (fun () ->
               let fd = Lwt_unix.unix_file_descr fd in
               let offset = Raw.lseek_data fd offset in
+              t.seek_offset <- offset;
               return (Ok Int64.(div offset (of_int t.info.sector_size)))
            )
       )
@@ -354,6 +465,7 @@ let seek_unmapped t from =
            (fun () ->
               let fd = Lwt_unix.unix_file_descr fd in
               let offset = Raw.lseek_hole fd offset in
+              t.seek_offset <- offset;
               return (Ok Int64.(div offset (of_int t.info.sector_size)))
            )
       )
