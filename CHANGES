@@ -1,3 +1,8 @@
+2.7.0 (2017-02-19)
+* add a simple file copy benchmark
+* add bindings for readv, writev
+* cache the file offset and avoid unnecessary calls to lseek
+
 2.6.0 (2017-02-13)
 * allow fsync to be used in preference to fcntl for flushing on macOS
 
