@@ -10,3 +10,4 @@
 *.cmt
 _build
 *.merlin
+*.install

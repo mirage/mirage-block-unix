@@ -1,3 +1,10 @@
+2.8.0 (2017-05-16)
+* switch to buffered I/O by default
+* better support for unbuffered I/O for non-512 byte sectors
+* for files which are not a whole number of sectors, pad with virtual zeroes
+* switch to jbuilder
+* add a Dockerfile
+
 2.7.0 (2017-02-19)
 * add a simple file copy benchmark
 * add bindings for readv, writev
