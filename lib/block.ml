@@ -51,6 +51,7 @@ module Raw = struct
     Unix.openfile name [ if rw then Unix.O_RDWR else Unix.O_RDONLY ] perm
 
   external blkgetsize: Unix.file_descr -> int64 = "stub_blkgetsize"
+  external blkgetsectorsize: Unix.file_descr -> int = "stub_blkgetsectorsize"
 
   external lseek_data : Unix.file_descr -> int64 -> int64 = "stub_lseek_data_64"
 
@@ -140,6 +141,9 @@ let stat _filename fd =
 let blkgetsize filename fd =
   Rresult.R.trap_exn Raw.blkgetsize fd |> Rresult.R.error_exn_trap_to_msg
 
+let blkgetsectorsize filename fd =
+  Rresult.R.trap_exn Raw.blkgetsectorsize fd |> Rresult.R.error_exn_trap_to_msg
+
 let get_file_size filename fd =
   stat filename fd >>*= fun st ->
   match st.Unix.LargeFile.st_kind with
@@ -150,6 +154,17 @@ let get_file_size filename fd =
     Lwt.return @@ Error
       (`Msg
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
+
+let get_sector_size filename fd =
+  stat filename fd >>*= fun st ->
+  match st.Unix.LargeFile.st_kind with
+  | Unix.S_REG -> Lwt.return @@ Ok 512 (* FIXME: no easy way to determine this *)
+  | Unix.S_BLK -> Lwt.return @@ blkgetsectorsize filename fd
+  | _ ->
+    Log.err (fun f -> f "get_sector_size %s: entity is neither a file nor a block device" filename);
+    Lwt.return @@ Error
+      (`Msg
+         (Printf.sprintf "get_sector_size %s: neither a file nor a block device" filename))
 
 let of_config ({ Config.buffered; sync; path } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
@@ -172,14 +187,19 @@ let of_config ({ Config.buffered; sync; path } as config) =
       fail_with e
     | Error _ -> fail_with "mirage-block-unix:of_config: unknown error"
     | Ok x ->
-      let sector_size = 512 in (* XXX: hardcoded *)
-      let size_sectors = Int64.(div x (of_int sector_size)) in
-      let fd = Lwt_unix.of_unix_file_descr fd in
-      let m = Lwt_mutex.create () in
-      let seek_offset = 0L in
-      return ({ fd = Some fd; seek_offset; m;
-                info = { Mirage_block.sector_size; size_sectors; read_write };
-        config; use_fsync_after_write })
+      get_sector_size path fd >>= function
+      | Error (`Msg e) ->
+        Unix.close fd;
+        fail_with e
+      | Error _ -> fail_with "mirage-block-unix:of_config: unknown error"
+      | Ok sector_size ->
+        let size_sectors = Int64.(div x (of_int sector_size)) in
+        let fd = Lwt_unix.of_unix_file_descr fd in
+        let m = Lwt_mutex.create () in
+        let seek_offset = 0L in
+        return ({ fd = Some fd; seek_offset; m;
+                  info = { Mirage_block.sector_size; size_sectors; read_write };
+                  config; use_fsync_after_write })
   with e ->
     Log.err (fun f -> f "connect %s: failed to open file" path);
     fail_with (Printf.sprintf "connect %s: failed to open file" path)
