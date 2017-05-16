@@ -8,8 +8,5 @@
 *.cmxs
 *.cmxa
 *.cmt
-setup.bin
-setup.data
-setup.log
 _build
-*.native
+*.merlin
