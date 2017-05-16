@@ -61,8 +61,8 @@ end
 
 val connect : ?buffered:bool -> ?sync:(Config.sync_behaviour option) -> string -> t io
 (** [connect ?buffered ?sync path] connects to a block device on the filesystem
-    at [path]. By default I/O is unbuffered and fully synchronous. These defaults
-    can be changed by supplying the optional arguments [~buffered:true] and
+    at [path]. By default I/O is buffered and asynchronous. These defaults
+    can be changed by supplying the optional arguments [~buffered:false] and
     [~sync:false] *)
 
 val resize : t -> int64 -> (unit, write_error) result io

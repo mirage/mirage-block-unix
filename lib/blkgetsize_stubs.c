@@ -49,6 +49,16 @@ int blkgetsize(int fd, uint64_t *psize)
   return ret;
 }
 
+int blkgetsectorsize(int fd, int *size)
+{
+#ifdef BLKSSZGET
+  int ret = ioctl(fd, BLKSSZGET, size);
+#else
+# error "Linux configuration error (BLKSSZGET)"
+#endif
+  return ret;
+}
+
 #elif defined(__APPLE__)
 #include <sys/disk.h>
 
@@ -65,6 +75,12 @@ int blkgetsize(int fd, uint64_t *psize)
   return ret;
 }
 
+int blkgetsectorsize(int fd, int *size)
+{
+  int ret = ioctl(fd, DKIOCGETBLOCKSIZE, &size);
+  return ret;
+}
+
 #elif defined(__FreeBSD__) || defined(__NetBSD__)
 #include <sys/disk.h>
 
@@ -74,11 +90,22 @@ int blkgetsize(int fd, uint64_t *psize)
   return ret;
 }
 
+int blkgetsectorsize(int fd, int *size)
+{
+  int ret = ioctl(fd, DIOCGSECTORSIZE, &size);
+  return ret;
+}
+
 #elif _WIN32
 
 int blkgetsize(int fd, uint64_t *psize)
 {
-  return 0; /* Will never be called because there are no block device file */
+  return 0; /* Will never be called because there are no block device files */
+}
+
+int blkgetsectorsize(int fd, int *size)
+{
+  return 512; /* Will never be called because there are no block device files */
 }
 
 #else
@@ -105,4 +132,21 @@ CAMLprim value stub_blkgetsize(value fd){
 
   result = caml_copy_int64(size_in_bytes);
   CAMLreturn(result);
+}
+
+CAMLprim value stub_blkgetsectorsize(value fd){
+  CAMLparam1(fd);
+  CAMLlocal1(result);
+  int size;
+  int c_fd = Int_val(fd); /* safe only because Unix.file_descr = int */
+  int success = -1;
+
+  enter_blocking_section();
+  if (blkgetsectorsize(c_fd, &size) == 0)
+    success = 0;
+  leave_blocking_section();
+
+  if (success == -1) uerror("blkgetsectorsize", Nothing);
+
+  CAMLreturn(Val_int(size));
 }
