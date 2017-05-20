@@ -1,3 +1,8 @@
+2.8.1 (2017-05-19)
+* Link to `lwt.unix` correctly, regressed in jbuilder port (report by @dim)
+* Remove duplicated entries from `opam` file.
+* Modernise the Travis OS build matrix and test OCaml 4.04.0/1 as well.
+
 2.8.0 (2017-05-16)
 * switch to buffered I/O by default
 * better support for unbuffered I/O for non-512 byte sectors
