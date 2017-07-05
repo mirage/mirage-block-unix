@@ -1,3 +1,8 @@
+2.8.3 (2017-07-05)
+* Use latest `cstruct-lwt` linkage.
+* Minimum OCaml version now 4.03.0 in line with rest of MirageOS.
+* Modernise jbuilder+topkg workflow.
+
 2.8.2 (2017-05-22)
 * Link to `cstruct.lwt` correctly, fixing the 2.8.1 fix.
 
