@@ -1,5 +1,4 @@
-mirage-block-unix
-=================
+## mirage-block-unix -- MirageOS disk block driver for Unix
 
 [![Build Status](https://travis-ci.org/mirage/mirage-block-unix.png?branch=master)](https://travis-ci.org/mirage/mirage-block-unix) [![Coverage Status](https://coveralls.io/repos/mirage/mirage-block-unix/badge.png?branch=master)](https://coveralls.io/r/mirage/mirage-block-unix?branch=master)
 
