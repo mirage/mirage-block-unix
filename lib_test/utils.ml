@@ -96,11 +96,11 @@ let run ?(env= [| |]) ?stdin cmd args =
     end in
   let read_all fd =
     let b = Buffer.create 128 in
-    let tmp = String.make 4096 '\000' in
+    let tmp = Bytes.make 4096 '\000' in
     let finished = ref false in
     while not !finished do
-      let n = Unix.read fd tmp 0 (String.length tmp) in
-      Buffer.add_substring b tmp 0 n;
+      let n = Unix.read fd tmp 0 (Bytes.length tmp) in
+      Buffer.add_subbytes b tmp 0 n;
       finished := n = 0
     done;
     Buffer.contents b in
@@ -133,8 +133,8 @@ let run ?(env= [| |]) ?stdin cmd args =
     begin match stdin with
       | None -> ()
       | Some txt ->
-        let n = Unix.write stdin_writable txt 0 (String.length txt) in
-        if n <> (String.length txt)
+        let n = Unix.write stdin_writable txt 0 (Bytes.length txt) in
+        if n <> (Bytes.length txt)
         then failwith (Printf.sprintf "short write to process stdin: only wrote %d bytes" n);
     end;
     close stdin_writable;
@@ -173,7 +173,7 @@ let with_temp_file f =
        finally
          (fun () ->
             ignore(Unix.lseek fd 1048575 Unix.SEEK_CUR);
-            ignore(Unix.write fd "\000" 0 1)) (* will write at least 1 *)
+            ignore(Unix.write fd (Bytes.make 1 '\000') 0 1)) (* will write at least 1 *)
          (fun () -> Unix.close fd);
        f path
     ) (fun () ->
