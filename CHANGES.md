@@ -1,3 +1,8 @@
+## v2.8.4 (2017-11-25)
+* opam: add lower bound on uri.1.9.0
+* fix build with appveyor
+* fix build with OCaml 4.06 (and -safe-string)
+
 ## v2.8.3 (2017-07-05)
 * Use latest `cstruct-lwt` linkage.
 * Minimum OCaml version now 4.03.0 in line with rest of MirageOS.
