@@ -23,7 +23,7 @@ depends: [
   "mirage-block-lwt" {>= "1.0.0"}
   "rresult"
   "io-page-unix" {>= "2.0.0"}
-  "uri"
+  "uri" {>= "1.9.0"}
   "logs"
   "ounit" {test}
   "fmt" {test}
