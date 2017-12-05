@@ -63,6 +63,7 @@ module Raw = struct
 
   external iov_len: unit -> int = "mirage_block_unix_get_iov_len"
 
+  external flock: Unix.file_descr -> bool (* ex *) -> bool (* nb *) -> unit   = "stub_flock"
 end
 
 open Lwt
@@ -92,15 +93,17 @@ module Config = struct
     buffered: bool;
     sync: sync_behaviour option;
     path: string;
+    lock: bool;
   }
 
-  let create ?(buffered = true) ?(sync = Some `ToOS) path =
-    { buffered; sync; path }
+  let create ?(buffered = true) ?(sync = Some `ToOS) ?(lock = false) path =
+    { buffered; sync; path; lock }
 
   let to_string t =
     let query = [
       "buffered", [ if t.buffered then "1" else "0" ];
       "sync",     [ string_of_sync t.sync ];
+      "lock",     [ if t.lock then "1" else "0" ];
     ] in
     let u = Uri.make ~scheme:"file" ~path:t.path ~query () in
     Uri.to_string u
@@ -112,10 +115,11 @@ module Config = struct
       let query = Uri.query u in
       let buffered = try List.assoc "buffered" query = [ "1" ] with Not_found -> false in
       let sync     = try sync_behaviour_of_string @@ List.hd @@ List.assoc "sync" query with Not_found -> None in
+      let lock     = try List.assoc "lock" query = [ "1" ] with Not_found -> false in
       let path = Uri.(pct_decode @@ path u) in
-      Ok { buffered; sync; path }
+      Ok { buffered; sync; path; lock }
     | _ ->
-      Error (`Msg "Config.to_string expected a string of the form file://<path>?sync=(none|os|drive)&buffered=(0|1)")
+      Error (`Msg "Config.to_string expected a string of the form file://<path>?sync=(none|os|drive)&buffered=(0|1)&lock=(0|1)")
 end
 
 type t = {
@@ -167,7 +171,7 @@ let get_sector_size filename fd =
       (`Msg
          (Printf.sprintf "get_sector_size %s: neither a file nor a block device" filename))
 
-let of_config ({ Config.buffered; sync; path } as config) =
+let of_config ({ Config.buffered; sync; path; lock } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
@@ -182,6 +186,9 @@ let of_config ({ Config.buffered; sync; path } as config) =
         openfile path true 0o0, true
       with _ ->
         openfile path false 0o0, false in
+    (* Acquire an exclusive lock if in read/write mode, otherwise a shared lock *)
+    if lock then Raw.flock fd read_write true;
+
     get_file_size path fd >>= function
     | Error (`Msg e) ->
       Unix.close fd;
@@ -219,11 +226,11 @@ let remove_prefix prefix x =
   then true, String.sub x prefix' (x' - prefix')
   else false, x
 
-let connect ?buffered ?sync name =
+let connect ?buffered ?sync ?lock name =
   let legacy_buffered, path = remove_prefix buffered_prefix name in
   (* Keep support for the legacy buffered: prefix until version 3.x.y *)
   let buffered = if legacy_buffered then Some true else buffered in
-  let config = Config.create ?buffered ?sync name in
+  let config = Config.create ?buffered ?sync ?lock name in
   of_config config
 
 let disconnect t = match t.fd with
