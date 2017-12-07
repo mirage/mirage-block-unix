@@ -44,12 +44,13 @@ module Config: sig
     buffered: bool; (** true if I/O hits the OS disk caches, false if "direct" *)
     sync: sync_behaviour option;
     path: string; (** path to the underlying file *)
+    lock: bool; (** true if the file should be locked preventing concurrent modification *)
   }
   (** Configuration of a device *)
 
-  val create: ?buffered:bool -> ?sync:(sync_behaviour option) -> string -> t
-  (** [create ?buffered ?sync path] constructs a configuration referencing the
-      file stored at [path]/ *)
+  val create: ?buffered:bool -> ?sync:(sync_behaviour option) -> ?lock:bool -> string -> t
+  (** [create ?buffered ?sync ?lock path] constructs a configuration referencing the
+      file stored at [path]. *)
 
   val to_string: t -> string
   (** Marshal a config into a string of the form
@@ -59,11 +60,12 @@ module Config: sig
   (** Parse the result of a previous [to_string] invocation *)
 end
 
-val connect : ?buffered:bool -> ?sync:(Config.sync_behaviour option) -> string -> t io
-(** [connect ?buffered ?sync path] connects to a block device on the filesystem
-    at [path]. By default I/O is buffered and asynchronous. These defaults
+val connect : ?buffered:bool -> ?sync:(Config.sync_behaviour option) -> ?lock:bool -> string -> t io
+(** [connect ?buffered ?sync ?lock path] connects to a block device on the filesystem
+    at [path]. By default I/O is buffered and asynchronous. By default the file
+    is unlocked. These defaults
     can be changed by supplying the optional arguments [~buffered:false] and
-    [~sync:false] *)
+    [~sync:false] [~lock:true] *)
 
 val resize : t -> int64 -> (unit, write_error) result io
 (** [resize t new_size_sectors] attempts to resize the connected device

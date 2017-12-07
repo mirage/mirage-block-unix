@@ -4,4 +4,4 @@
   (libraries   (cstruct-lwt logs uri rresult mirage-block-lwt))
   (wrapped     false)
   (c_names     (odirect_stubs blkgetsize_stubs lseekhole_stubs
-                flush_stubs writev_stubs readv_stubs))))
+                flush_stubs writev_stubs readv_stubs flock_stubs))))
