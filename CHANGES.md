@@ -1,3 +1,6 @@
+## v2.9.0 (2017-12-07)
+* Add support for `flock` file locking
+
 ## v2.8.4 (2017-11-25)
 * opam: add lower bound on uri.1.9.0
 * fix build with appveyor
