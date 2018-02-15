@@ -85,6 +85,11 @@ val seek_mapped: t -> int64 -> (int64, error) result io
     device which may have data in it (typically this is the next mapped
     region) *)
 
+val discard: t -> int64 -> int64 -> (unit, write_error) result io
+(** [discard sector n] signals that the [n] sectors starting at [sector]
+    are no longer needed and the contents may be discarded. Note the contents
+    may not actually be deleted: this is not a "secure erase". *)
+
 val to_config: t -> Config.t
 (** [to_config t] returns the configuration of a device *)
 

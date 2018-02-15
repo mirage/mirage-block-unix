@@ -515,3 +515,22 @@ let seek_unmapped t from =
               return (Ok Int64.(div offset (of_int t.info.sector_size)))
            )
       )
+
+external discard_job: Unix.file_descr -> int64 -> int64 -> unit Lwt_unix.job = "mirage_block_unix_discard_job"
+
+let discard t sector n =
+  match t with
+  | { fd = None } -> return (Error `Disconnected)
+  | { info = { read_write = false } } -> return (Error `Is_read_only)
+  | { fd = Some fd } ->
+    if is_win32
+    then return (Error `Unimplemented)
+    else lwt_wrap_exn t "discard" sector
+      (fun () ->
+        let fd = Lwt_unix.unix_file_descr fd in
+        let offset = Int64.(mul sector (of_int t.info.sector_size)) in
+        let n = Int64.(mul n (of_int t.info.sector_size)) in
+        Lwt_unix.run_job (discard_job fd offset n)
+        >>= fun () ->
+        Lwt.return (Ok ())
+      )
