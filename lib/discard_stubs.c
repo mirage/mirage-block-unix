@@ -85,11 +85,12 @@ static void worker_discard(struct job_discard *job)
 
   size_t aligned_offset = ALIGNUP(fp_offset, delete_alignment);
   if (aligned_offset != fp_offset) {
-    size_t len_to_zero = aligned_offset - fp_offset;
-    assert(len_to_zero <= delete_alignment);
+    size_t len_to_zero = MIN(fp_length, aligned_offset - fp_offset);
+    assert(len_to_zero < delete_alignment);
     void *zero_buf = (void*)malloc(len_to_zero);
     bzero(zero_buf, len_to_zero);
-    ssize_t written = pwrite(job->fd, zero_buf, len_to_zero, (off_t) fp_offset);
+    ssize_t written = pwrite(job->fd, zero_buf,
+      len_to_zero, (off_t)fp_offset);
     if (written == -1) {
       job->errno_copy = errno;
       job->error_fn = "pwrite";
@@ -98,26 +99,37 @@ static void worker_discard(struct job_discard *job)
     fp_offset += len_to_zero;
     fp_length -= len_to_zero;
   }
-
   size_t aligned_length = ALIGNDOWN(fp_length, delete_alignment);
-  if (aligned_length != fp_length) {
-    size_t len_to_zero = fp_length - aligned_length;
-    assert(len_to_zero <= delete_alignment);
-    fp_length -= len_to_zero;
-    void *zero_buf = (void*)malloc(len_to_zero);
-    bzero(zero_buf, len_to_zero);
-    ssize_t written = pwrite(job->fd, zero_buf, len_to_zero, (off_t) (fp_offset + fp_length));
+
+  if (aligned_length >= delete_alignment) {
+    assert(fp_offset % delete_alignment == 0);
+    struct fpunchhole arg = {
+      .fp_flags = 0,
+      .reserved = 0,
+      .fp_offset = (off_t)fp_offset,
+      .fp_length = (off_t)aligned_length
+    };
+    int punched = fcntl(job->fd, F_PUNCHHOLE, &arg);
+    if (punched == -1) {
+      job->errno_copy = errno;
+      job->error_fn = "fcntl(F_PUNCHHOLE)";
+      return;
+    }
+    fp_offset += aligned_length;
+    fp_length -= aligned_length;
+	}
+  if (fp_length > 0) {
+    assert(fp_length < delete_alignment);
+    assert(fp_offset % delete_alignment == 0);
+    void *zero_buf = (void*)malloc(fp_length);
+    bzero(zero_buf, fp_length);
+    ssize_t written = pwrite(job->fd, zero_buf,
+      fp_length, (off_t)fp_offset);
     if (written == -1) {
       job->errno_copy = errno;
       job->error_fn = "pwrite";
       return;
     }
-  }
-  struct fpunchhole arg = { .fp_flags = 0, .reserved = 0, .fp_offset = (off_t) fp_offset, .fp_length = (off_t) fp_length };
-  if (fcntl(job->fd, F_PUNCHHOLE, &arg) == -1){
-    job->errno_copy = errno;
-    job->error_fn = "fcntl(F_PUNCHHOLE)";
-    return;
   }
   job->errno_copy = 0;
   return;
