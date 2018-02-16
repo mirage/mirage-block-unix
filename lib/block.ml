@@ -525,6 +525,7 @@ let discard t sector n =
   | { fd = Some fd } ->
     if is_win32
     then return (Error `Unimplemented)
+    else if n = 0L then Lwt.return (Ok ())
     else lwt_wrap_exn t "discard" sector
       (fun () ->
         let fd = Lwt_unix.unix_file_descr fd in
