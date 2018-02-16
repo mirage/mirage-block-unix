@@ -1,6 +1,8 @@
 (executables
- ((names (benchmark test))
-  (libraries   (lwt cstruct.lwt mirage-block-unix cstruct io-page io-page.unix logs logs.fmt oUnit))
+ ((names (benchmark test stress))
+  (libraries   (lwt cstruct.lwt mirage-block-unix cstruct io-page io-page.unix
+                logs logs.fmt oUnit diet))
+  (preprocess (pps (ppx_sexp_conv)))
 ))
 
 (alias

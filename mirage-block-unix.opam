@@ -27,6 +27,9 @@ depends: [
   "logs"
   "ounit" {test}
   "fmt" {test}
+  "ppx_tools" {test}
+  "ppx_sexp_conv" {test}
+  "ppx_type_conv" {test}
 ]
 available: [ ocaml-version >= "4.03.0" ]
 depexts: [
