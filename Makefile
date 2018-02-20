@@ -16,6 +16,14 @@ uninstall:
 clean:
 	jbuilder clean
 
+.PHONY: vm-test
+vm-test:
+	echo "The VM test requires the linuxkit tool to be installed."
+	docker build -t stress -f Dockerfile.stress  .
+	linuxkit build stress.yml
+	echo "If the VM exits, then the test was successful. Otherwise the logs are in /var/log/stress*"
+	linuxkit run -disk `pwd`/stress.img,size=16M stress
+
 REPO=../../mirage/opam-repository
 PACKAGES=$(REPO)/packages
 # until we have https://github.com/ocaml/opam-publish/issues/38
