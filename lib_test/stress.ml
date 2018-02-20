@@ -156,7 +156,7 @@ module Make(B: DISCARDABLE) = struct
       if !nr_iterations = stop_after then Lwt.return_unit else begin
         let r = Random.int 21 in
         (* A random action: mostly a write or a discard, occasionally a compact *)
-        ( if 0 <= r && r < 10 then begin
+        ( if 0 <= r && r < 20 then begin
             let sector = Random.int64 nr_sectors in
             let n = Random.int64 (Int64.sub nr_sectors sector) in
             if !debug then Printf.fprintf stderr "write %Ld %Ld\n%!" sector n;
