@@ -216,7 +216,9 @@ let _ =
   Logs.set_reporter (Logs_fmt.reporter ());
   let sectors = ref 65536 in
   let stop_after = ref 1024 in
+  let path = ref "" in
   Arg.parse [
+    "-path", Arg.Set_string path, "Path of file or block device (default: create a fresh file)";
     "-sectors", Arg.Set_int sectors, Printf.sprintf "Total number of sectors (default %d)" !sectors;
     "-stop-after", Arg.Set_int stop_after, Printf.sprintf "Number of iterations to stop after (default: 1024, 0 means never)";
     "-debug", Arg.Set debug, "enable debug";
@@ -228,9 +230,11 @@ let _ =
   Lwt_main.run begin
     let open Lwt.Infix in
     let sectors = Int64.of_int (!sectors) in
-    let path = Filename.concat "." (Int64.to_string sectors) ^ ".compact" in
+    let path = match !path with
+      | "" -> Filename.concat "." (Int64.to_string sectors) ^ ".compact"
+      | x -> x in
 
-    create_file path sectors
+    ( if not(Sys.file_exists path) then create_file path sectors else Lwt.return_unit )
     >>= fun () ->
     Block.connect path
     >>= fun block ->
