@@ -151,12 +151,18 @@ static void worker_discard(struct job_discard *job)
     job->errno_copy = 0;
     return;
   }
-
+#if defined(FALLOC_FL_PUNCH_HOLE)
   if (fallocate(job->fd, FALLOC_FL_PUNCH_HOLE, job->offset, job->length) == -1){
     job->errno_copy = errno;
     job->error_fn = "fallocate";
     return;
   }
+#else
+  job->errno_copy = ENOSYS;
+  job->error_fn = "fallocate";
+  return;
+#endif
+
 #endif
 }
 
