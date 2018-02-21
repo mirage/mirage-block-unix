@@ -235,7 +235,7 @@ let create_file path nsectors =
 let _ =
   Logs.set_reporter (Logs_fmt.reporter ());
   let sectors = ref 65536 in
-  let stop_after = ref 1024 in
+  let stop_after = ref 64 in
   let path = ref "" in
   Arg.parse [
     "-path", Arg.Set_string path, "Path of file or block device (default: create a fresh file)";
