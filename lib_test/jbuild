@@ -9,3 +9,8 @@
  ((name    runtest)
   (deps    (test.exe))
   (action  (run ${<} -runner sequential))))
+
+(alias
+ ((name    runtest)
+  (deps    (stress.exe))
+  (action  (run ${<}))))
