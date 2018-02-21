@@ -34,8 +34,10 @@
 #include <fcntl.h>
 #include <assert.h>
 
+#if !defined(WIN32)
 #include <sys/param.h>
 #include <sys/mount.h>
+#endif
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
