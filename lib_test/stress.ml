@@ -35,16 +35,22 @@ module Make(B: DISCARDABLE) = struct
   (* Randomly write and discard, checking with read whether the expected data is in
     each sector. By convention we write the sector index into each sector so we
     can detect if they permute or alias. *)
-  let random_write_discard stop_after block =
+  let random_write_discard stop_after is_empty block =
     let open Lwt.Infix in
     B.get_info block
     >>= fun info ->
     let nr_sectors = info.Mirage_block.size_sectors in
   
     (* add to this set on write, remove on discard *)
-    let written = ref SectorSet.empty in
     let i = SectorSet.Interval.make 0L (Int64.pred info.Mirage_block.size_sectors) in
-    let empty = ref SectorSet.(add i empty) in
+    let none = SectorSet.empty in
+    let all = SectorSet.(add i empty) in
+
+    let written = ref none in
+    let undefined, empty =
+      if is_empty
+      then ref none, ref all (* everything is empty because we created the file *)
+      else ref all, ref none in
     let nr_iterations = ref 0 in
 
     let buffer_size = 1048576 in (* perform 1MB of I/O at a time, maximum *)
@@ -83,18 +89,25 @@ module Make(B: DISCARDABLE) = struct
         let i = SectorSet.Interval.make x y in
         written := SectorSet.add i !written;
         empty := SectorSet.remove i !empty;
+        undefined := SectorSet.remove i !undefined;
       end;
       Lwt.return_unit in
 
     let discard x n =
       assert (Int64.add x n <= nr_sectors);
       let y = Int64.(add x (pred n)) in
+      let i = SectorSet.Interval.make x y in
       B.discard block x n
       >>= function
-      | Error _ -> failwith "discard"
+      | Error _ ->
+        undefined := SectorSet.add i !undefined;
+        written := SectorSet.remove i !written;
+        empty := SectorSet.remove i !empty;
+        Lwt.return_unit
       | Ok () ->
       if n > 0L then begin
         let i = SectorSet.Interval.make x y in
+        undefined := SectorSet.remove i !undefined;
         written := SectorSet.remove i !written;
         empty := SectorSet.add i !empty;
       end;
@@ -198,6 +211,13 @@ module Make(B: DISCARDABLE) = struct
         >>= fun () ->
         Lwt_io.close oc
         >>= fun () ->
+        let s = Sexplib.Sexp.to_string_hum (SectorSet.sexp_of_t !undefined) in
+        Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] ~perm:0o644 ~mode:Lwt_io.output "/tmp/undefined.sexp"
+        >>= fun oc ->
+        Lwt_io.write oc s
+        >>= fun () ->
+        Lwt_io.close oc
+        >>= fun () ->
         Lwt.fail e
       )
 end
@@ -234,16 +254,17 @@ let _ =
       | "" -> Filename.concat "." (Int64.to_string sectors) ^ ".compact"
       | x -> x in
 
-    ( if not(Sys.file_exists path) then create_file path sectors else Lwt.return_unit )
+    let path_already_exists = Sys.file_exists path in
+    ( if not path_already_exists then create_file path sectors else Lwt.return_unit )
     >>= fun () ->
-    Block.connect path
+    Block.connect ~buffered:false path
     >>= fun block ->
 
     Lwt.catch
       (fun () ->
-        Test.random_write_discard (!stop_after) block
+        Test.random_write_discard (!stop_after) (not path_already_exists) block
         >>= fun () ->
-        Lwt_unix.unlink path
+        if not path_already_exists then Lwt_unix.unlink path else Lwt.return_unit
       ) (fun e ->
         Printf.fprintf stderr "Block device file is: %s\n%!" path;
         (* Don't delete it so it can be analysed *)
