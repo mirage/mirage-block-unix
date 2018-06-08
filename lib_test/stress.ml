@@ -264,6 +264,9 @@ let _ =
       (fun () ->
         Test.random_write_discard (!stop_after) (not path_already_exists) block
         >>= fun () ->
+        (* Windows will fail the unlink if the file is open *)
+        Block.disconnect block
+        >>= fun () ->
         if not path_already_exists then Lwt_unix.unlink path else Lwt.return_unit
       ) (fun e ->
         Printf.fprintf stderr "Block device file is: %s\n%!" path;
