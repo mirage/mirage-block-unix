@@ -63,8 +63,15 @@ module Raw = struct
 
   external iov_len: unit -> int = "mirage_block_unix_get_iov_len"
 
+  external chsize_job: Unix.file_descr -> int64 -> unit Lwt_unix.job = "mirage_block_unix_chsize_job"
+
   external flock: Unix.file_descr -> bool (* ex *) -> bool (* nb *) -> unit   = "stub_flock"
 end
+
+let ftruncate fd size =
+  if is_win32
+  then Lwt_unix.run_job (Raw.chsize_job (Lwt_unix.unix_file_descr fd) size)
+  else Lwt_unix.LargeFile.ftruncate fd size
 
 open Lwt
 
@@ -460,7 +467,7 @@ let resize t new_size_sectors =
         (fun () ->
            Lwt_mutex.with_lock t.m
              (fun () ->
-                Lwt_unix.LargeFile.ftruncate fd new_size_bytes
+                ftruncate fd new_size_bytes
                 >>= fun () ->
                 t.info <- { t.info with size_sectors = new_size_sectors };
                 return (Ok ())

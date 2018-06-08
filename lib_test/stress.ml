@@ -228,7 +228,7 @@ let create_file path nsectors =
   let open Lwt.Infix in
   Lwt_unix.openfile path [ Unix.O_CREAT; Unix.O_TRUNC; Lwt_unix.O_WRONLY ] 0o0644
   >>= fun fd ->
-  Lwt_unix.ftruncate fd (Int64.to_int nsectors * 512)
+  Block.ftruncate fd (Int64.mul nsectors 512L)
   >>= fun () ->
   Lwt_unix.close fd
 

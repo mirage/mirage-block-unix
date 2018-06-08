@@ -32,6 +32,10 @@ val blkgetsize: string -> Unix.file_descr -> (int64, error) result
     given by [fd]. [path] is only used to construct a human-readable error
     message. *)
 
+val ftruncate: Lwt_unix.file_descr -> int64 -> unit Lwt.t
+(** [ftruncate fd size]: changes the size of the file backed by [fd]
+    to [size]. This function works on Unix and Windows. *)
+
 module Config: sig
   type sync_behaviour = [
     | `ToOS (** flush to the operating system, not necessarily the drive *)

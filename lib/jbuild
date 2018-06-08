@@ -5,4 +5,4 @@
   (wrapped     false)
   (c_names     (odirect_stubs blkgetsize_stubs lseekhole_stubs
                 flush_stubs writev_stubs readv_stubs flock_stubs
-                discard_stubs))))
+                discard_stubs chsize_stubs))))
