@@ -32,6 +32,10 @@ val blkgetsize: string -> Unix.file_descr -> (int64, error) result
     given by [fd]. [path] is only used to construct a human-readable error
     message. *)
 
+val ftruncate: Lwt_unix.file_descr -> int64 -> unit Lwt.t
+(** [ftruncate fd size]: changes the size of the file backed by [fd]
+    to [size]. This function works on Unix and Windows. *)
+
 module Config: sig
   type sync_behaviour = [
     | `ToOS (** flush to the operating system, not necessarily the drive *)
@@ -84,6 +88,11 @@ val seek_mapped: t -> int64 -> (int64, error) result io
 (** [seek_mapped t start] returns the sector offset of the next regoin of the
     device which may have data in it (typically this is the next mapped
     region) *)
+
+val discard: t -> int64 -> int64 -> (unit, write_error) result io
+(** [discard sector n] signals that the [n] sectors starting at [sector]
+    are no longer needed and the contents may be discarded. Note the contents
+    may not actually be deleted: this is not a "secure erase". *)
 
 val to_config: t -> Config.t
 (** [to_config t] returns the configuration of a device *)

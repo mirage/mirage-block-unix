@@ -63,8 +63,15 @@ module Raw = struct
 
   external iov_len: unit -> int = "mirage_block_unix_get_iov_len"
 
+  external chsize_job: Unix.file_descr -> int64 -> unit Lwt_unix.job = "mirage_block_unix_chsize_job"
+
   external flock: Unix.file_descr -> bool (* ex *) -> bool (* nb *) -> unit   = "stub_flock"
 end
+
+let ftruncate fd size =
+  if is_win32
+  then Lwt_unix.run_job (Raw.chsize_job (Lwt_unix.unix_file_descr fd) size)
+  else Lwt_unix.LargeFile.ftruncate fd size
 
 open Lwt
 
@@ -460,7 +467,7 @@ let resize t new_size_sectors =
         (fun () ->
            Lwt_mutex.with_lock t.m
              (fun () ->
-                Lwt_unix.LargeFile.ftruncate fd new_size_bytes
+                ftruncate fd new_size_bytes
                 >>= fun () ->
                 t.info <- { t.info with size_sectors = new_size_sectors };
                 return (Ok ())
@@ -514,4 +521,24 @@ let seek_unmapped t from =
               t.seek_offset <- offset;
               return (Ok Int64.(div offset (of_int t.info.sector_size)))
            )
+      )
+
+external discard_job: Unix.file_descr -> int64 -> int64 -> unit Lwt_unix.job = "mirage_block_unix_discard_job"
+
+let discard t sector n =
+  match t with
+  | { fd = None } -> return (Error `Disconnected)
+  | { info = { read_write = false } } -> return (Error `Is_read_only)
+  | { fd = Some fd } ->
+    if is_win32
+    then return (Error `Unimplemented)
+    else if n = 0L then Lwt.return (Ok ())
+    else lwt_wrap_exn t "discard" sector
+      (fun () ->
+        let fd = Lwt_unix.unix_file_descr fd in
+        let offset = Int64.(mul sector (of_int t.info.sector_size)) in
+        let n = Int64.(mul n (of_int t.info.sector_size)) in
+        Lwt_unix.run_job (discard_job fd offset n)
+        >>= fun () ->
+        Lwt.return (Ok ())
       )
