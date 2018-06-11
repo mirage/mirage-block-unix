@@ -244,10 +244,6 @@ let test_not_multiple_of_sectors () =
     ) in
   Lwt_main.run t
 
-let not_implemented_on_windows = [
-  "test resize" >:: test_resize;
-]
-
 let tests = [
   "test ENOENT" >:: test_enoent;
   "test open read" >:: test_open_read;
@@ -262,7 +258,8 @@ let tests = [
   "test write then read" >:: test_write_read;
   "test that writes fail if the buffer has a bad length" >:: test_buffer_wrong_length;
   "files which aren't a whole number of sectors" >:: test_not_multiple_of_sectors;
-] @ (if Sys.os_type <> "Win32" then not_implemented_on_windows else [])
+  "test resize" >:: test_resize;
+]
 
 let _ =
   Logs.set_reporter (Logs_fmt.reporter ());

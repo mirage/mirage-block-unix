@@ -461,9 +461,7 @@ let resize t new_size_sectors =
   match t.fd with
   | None -> return (Error `Disconnected)
   | Some fd ->
-    if is_win32
-    then return (Error `Unimplemented)
-    else lwt_wrap_exn t "ftruncate" new_size_bytes
+    lwt_wrap_exn t "ftruncate" new_size_bytes
         (fun () ->
            Lwt_mutex.with_lock t.m
              (fun () ->
