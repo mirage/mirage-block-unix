@@ -1,3 +1,7 @@
+## v2.10.0 (2018-06-11)
+* Add support for `discard` (also known as TRIM)
+* Add support for `resize` on Windows
+
 ## v2.9.0 (2017-12-07)
 * Add support for `flock` file locking
 
