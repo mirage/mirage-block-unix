@@ -18,7 +18,6 @@ open Lwt
 open Block
 open OUnit
 open Utils
-open Result
 
 let or_failwith = function
   | Error e -> failwith @@ Format.asprintf "%a" Block.pp_error e
