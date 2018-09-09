@@ -15,8 +15,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Result
-
 (** Block device on top of Lwt_unix *)
 
 include Mirage_block_lwt.S
