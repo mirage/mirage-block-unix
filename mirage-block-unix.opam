@@ -1,22 +1,22 @@
-opam-version: "1.2"
+opam-version: "2.0"
 authors:      "Dave Scott <dave@recoil.org>"
 maintainer:   "dave@recoil.org"
 homepage:     "https://github.com/mirage/mirage-block-unix"
-dev-repo:     "https://github.com/mirage/mirage-block-unix.git"
+dev-repo:     "git+https://github.com/mirage/mirage-block-unix.git"
 bug-reports:  "https://github.com/mirage/mirage-block-unix/issues"
 tags:         "org:mirage"
 license:      "ISC"
-
+synopsis: """
+Unix implementation of the Mirage_types.BLOCK interface
+"""
 build: [
   [ "jbuilder" "subst" ] {pinned}
   [ "jbuilder" "build" "-p" name "-j" jobs ]
-]
-
-build-test: [
-  [ "jbuilder" "runtest" "-p" name "-j" jobs ]
+  [ "jbuilder" "runtest" "-p" name ] {with-test}
 ]
 
 depends: [
+  "ocaml" {>= "4.03.0"}
   "jbuilder" {build & >="1.0+beta10"}
   "cstruct" {>= "3.0.0"}
   "cstruct-lwt"
@@ -30,7 +30,6 @@ depends: [
   "fmt" {test}
   "ppx_sexp_conv" {test}
 ]
-available: [ ocaml-version >= "4.03.0" ]
 depexts: [
  [["alpine"] ["linux-headers"]]
 ]
