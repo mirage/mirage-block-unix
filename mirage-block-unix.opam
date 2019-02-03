@@ -1,13 +1,15 @@
 opam-version: "2.0"
-maintainer: "dave@recoil.org"
-authors: "Dave Scott <dave@recoil.org>"
-license: "ISC"
-tags: "org:mirage"
-homepage: "https://github.com/mirage/mirage-block-unix"
-bug-reports: "https://github.com/mirage/mirage-block-unix/issues"
+authors:      "Dave Scott <dave@recoil.org>"
+maintainer:   "dave@recoil.org"
+homepage:     "https://github.com/mirage/mirage-block-unix"
+dev-repo:     "git+https://github.com/mirage/mirage-block-unix.git"
+doc:          "https://mirage.github.io/mirage-block-unix/"
+bug-reports:  "https://github.com/mirage/mirage-block-unix/issues"
+tags:         "org:mirage"
+license:      "ISC"
 depends: [
   "ocaml" {>= "4.03.0"}
-  "dune" {build & >= "1.0"}
+  "dune" {build & >="1.0"}
   "cstruct" {>= "3.0.0"}
   "cstruct-lwt"
   "mirage-block-lwt" {>= "1.0.0"}
@@ -28,7 +30,6 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depexts: ["linux-headers"] {os-distribution = "alpine"}
-dev-repo: "git+https://github.com/mirage/mirage-block-unix.git"
 synopsis: "MirageOS disk block driver for Unix"
 description: """
 Unix implementation of the Mirage `BLOCK_DEVICE` interface.
