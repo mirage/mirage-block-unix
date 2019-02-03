@@ -70,7 +70,7 @@ static void worker_discard(struct job_discard *job)
 {
   job->errno_copy = ENOTSUP;
   job->error_fn = "unknown";
-#if defined(__APPLE__)
+#if defined(__APPLE__)&&defined(F_PUNCHHOLE)
   /* When a Block device is backed by a file we currently report the sector size as
      512. The macOS F_PUNCHHOLE API requires arguments to be aligned to the `fstatfs`
      `f_bsize` (typically 4096 bytes). Therefore we must manually zero leading and
