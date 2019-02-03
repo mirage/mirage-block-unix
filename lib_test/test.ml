@@ -30,7 +30,7 @@ let test_enoent () =
   let t =
     let name = find_unused_file () in
     Lwt.catch (fun () ->
-        Block.connect name >>= fun b ->
+        Block.connect name >>= fun _b ->
         failwith (Printf.sprintf "Block.connect %s should have failed" name))
       (fun _ -> Lwt.return_unit)
   in

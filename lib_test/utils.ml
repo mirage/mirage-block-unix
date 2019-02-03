@@ -64,7 +64,7 @@ let canonicalise x =
     (* Search the PATH for the executable *)
     let paths = split [] (Sys.getenv "PATH") in
     let first_hit = List.fold_left (fun found path -> match found with
-        | Some hit -> found
+        | Some _hit -> found
         | None ->
           let possibility = Filename.concat path x in
           if Sys.file_exists possibility
@@ -204,7 +204,7 @@ let with_losetup path f =
     try
       let i = String.index line ' ' in
       String.sub line 0 (i - 1)
-    with e ->
+    with _ ->
       error "Failed to parse output of losetup -j: [%s]" line;
       ignore_string (run "losetup" [ "-d"; path ]);
       failwith (Printf.sprintf "Failed to parse output of losetup -j: [%s]" line) in

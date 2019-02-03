@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Lwt.Infix
+[@@@warning "-9-27-34"]
 
 let src =
   let src = Logs.Src.create "mirage-block-unix" ~doc:"Mirage BLOCK interface for Unix" in
