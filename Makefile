@@ -2,19 +2,19 @@
 .PHONY: build clean test
 
 build:
-	jbuilder build @install
+	dune build @install
 
 test:
-	jbuilder runtest
+	dune runtest
 
 install:
-	jbuilder install
+	dune install
 
 uninstall:
-	jbuilder uninstall
+	dune uninstall
 
 clean:
-	jbuilder clean
+	dune clean
 
 .PHONY: vm-test
 vm-test:
@@ -23,18 +23,4 @@ vm-test:
 	linuxkit build stress.yml
 	echo "If the VM exits, then the test was successful. Otherwise the logs are in /var/log/stress*"
 	linuxkit run -disk `pwd`/stress.img,size=16M stress
-
-REPO=../../mirage/opam-repository
-PACKAGES=$(REPO)/packages
-# until we have https://github.com/ocaml/opam-publish/issues/38
-pkg-%:
-	topkg opam pkg -n $*
-	mkdir -p $(PACKAGES)/$*
-	cp -r _build/$*.* $(PACKAGES)/$*/
-	cd $(PACKAGES) && git add $*
-
-PKGS=$(basename $(wildcard *.opam))
-opam-pkg:
-	$(MAKE) $(PKGS:%=pkg-%)
-
 

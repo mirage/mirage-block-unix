@@ -15,11 +15,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** Block device on top of Lwt_unix *)
+(** Block device on top of {!Lwt_unix} *)
 
 include Mirage_block_lwt.S
 
-(** {0} low-level convenience functions *)
+(** {2 Low-level convenience functions} *)
 
 val really_read: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
 

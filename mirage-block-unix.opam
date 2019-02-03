@@ -1,23 +1,13 @@
-opam-version: "1.2"
-authors:      "Dave Scott <dave@recoil.org>"
-maintainer:   "dave@recoil.org"
-homepage:     "https://github.com/mirage/mirage-block-unix"
-dev-repo:     "https://github.com/mirage/mirage-block-unix.git"
-bug-reports:  "https://github.com/mirage/mirage-block-unix/issues"
-tags:         "org:mirage"
-license:      "ISC"
-
-build: [
-  [ "jbuilder" "subst" ] {pinned}
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
-]
-
-build-test: [
-  [ "jbuilder" "runtest" "-p" name "-j" jobs ]
-]
-
+opam-version: "2.0"
+maintainer: "dave@recoil.org"
+authors: "Dave Scott <dave@recoil.org>"
+license: "ISC"
+tags: "org:mirage"
+homepage: "https://github.com/mirage/mirage-block-unix"
+bug-reports: "https://github.com/mirage/mirage-block-unix/issues"
 depends: [
-  "jbuilder" {build & >="1.0+beta10"}
+  "ocaml" {>= "4.03.0"}
+  "dune" {build & >= "1.0"}
   "cstruct" {>= "3.0.0"}
   "cstruct-lwt"
   "mirage-block-lwt" {>= "1.0.0"}
@@ -25,14 +15,24 @@ depends: [
   "io-page-unix" {>= "2.0.0"}
   "uri" {>= "1.9.0"}
   "logs"
-  "ounit" {test}
-  "diet" {test}
-  "fmt" {test}
-  "ppx_tools" {test}
-  "ppx_sexp_conv" {test}
-  "ppx_type_conv" {test}
+  "ounit" {with-test}
+  "diet" {with-test}
+  "fmt" {with-test}
+  "ppx_tools" {with-test}
+  "ppx_sexp_conv" {with-test}
+  "ppx_type_conv" {with-test}
 ]
-available: [ ocaml-version >= "4.03.0" ]
-depexts: [
- [["alpine"] ["linux-headers"]]
+build: [
+  ["dune" "subst"] {pinned}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
+depexts: ["linux-headers"] {os-distribution = "alpine"}
+dev-repo: "git+https://github.com/mirage/mirage-block-unix.git"
+synopsis: "MirageOS disk block driver for Unix"
+description: """
+Unix implementation of the Mirage `BLOCK_DEVICE` interface.
+
+This module provides raw I/O to files and block devices with as little
+caching as possible.
+"""

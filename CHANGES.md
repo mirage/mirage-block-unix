@@ -1,3 +1,9 @@
+## v2.11.0 (2019-02-03)
+* Port build to Dune from jbuilder (@avsm)
+* Update opam metadata to 2.0 format (@avsm)
+* Use dune-release instead of topkg (@avsm)
+* Ocamldoc fixes for odoc support (@avsm)
+
 ## v2.10.0 (2018-06-11)
 * Add support for `discard` (also known as TRIM)
 * Add support for `resize` on Windows
