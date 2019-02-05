@@ -15,8 +15,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *)
 
-[@@@warning "-9-27-34"]
-
 let src =
   let src = Logs.Src.create "mirage-block-unix" ~doc:"Mirage BLOCK interface for Unix" in
   Logs.Src.set_level src (Some Logs.Info);
@@ -39,10 +37,6 @@ let pp_write_error ppf = function
 module Log = (val Logs.src_log src : Logs.LOG)
 
 let is_win32 = Sys.os_type = "Win32"
-
-type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
-
-type id = string
 
 module Raw = struct
   external openfile_unbuffered: string -> bool -> int -> Unix.file_descr = "stub_openfile_direct"
@@ -140,7 +134,7 @@ type t = {
   use_fsync_after_write: bool;
 }
 
-let to_config { config } = config
+let to_config x = x.config
 
 let (>>*=) m f = m >>= function
   | Ok x -> f x
@@ -149,17 +143,17 @@ let (>>*=) m f = m >>= function
 let stat _filename fd =
   Rresult.R.trap_exn Unix.LargeFile.fstat fd |> Rresult.R.error_exn_trap_to_msg |> Lwt.return
 
-let blkgetsize filename fd =
+let blkgetsize _filename fd =
   Rresult.R.trap_exn Raw.blkgetsize fd |> Rresult.R.error_exn_trap_to_msg
 
-let blkgetsectorsize filename fd =
+let blkgetsectorsize fd =
   Rresult.R.trap_exn Raw.blkgetsectorsize fd |> Rresult.R.error_exn_trap_to_msg
 
 let get_file_size filename fd =
   stat filename fd >>*= fun st ->
   match st.Unix.LargeFile.st_kind with
   | Unix.S_REG -> Lwt.return @@ Ok st.Unix.LargeFile.st_size
-  | Unix.S_BLK -> Lwt.return @@ blkgetsize filename fd
+  | Unix.S_BLK -> Lwt.return @@ blkgetsize () fd
   | _ ->
     Log.err (fun f -> f "get_file_size %s: entity is neither a file nor a block device" filename);
     Lwt.return @@ Error
@@ -170,14 +164,14 @@ let get_sector_size filename fd =
   stat filename fd >>*= fun st ->
   match st.Unix.LargeFile.st_kind with
   | Unix.S_REG -> Lwt.return @@ Ok 512 (* FIXME: no easy way to determine this *)
-  | Unix.S_BLK -> Lwt.return @@ blkgetsectorsize filename fd
+  | Unix.S_BLK -> Lwt.return @@ blkgetsectorsize fd
   | _ ->
     Log.err (fun f -> f "get_sector_size %s: entity is neither a file nor a block device" filename);
     Lwt.return @@ Error
       (`Msg
          (Printf.sprintf "get_sector_size %s: neither a file nor a block device" filename))
 
-let of_config ({ Config.buffered; sync; path; lock } as config) =
+let of_config ({ Config.buffered; path; lock; sync = _ } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
@@ -219,21 +213,19 @@ let of_config ({ Config.buffered; sync; path; lock } as config) =
         return ({ fd = Some fd; seek_offset; m;
                   info = { Mirage_block.sector_size; size_sectors; read_write };
                   size_bytes; config; use_fsync_after_write })
-  with e ->
+  with _ ->
     Log.err (fun f -> f "connect %s: failed to open file" path);
     fail_with (Printf.sprintf "connect %s: failed to open file" path)
 
 (* prefix which signals we want to use buffered I/O *)
 let buffered_prefix = "buffered:"
 
-let remove_prefix prefix x =
+let is_prefix ~prefix x =
   let prefix' = String.length prefix and x' = String.length x in
-  if x' >= prefix' && (String.sub x 0 prefix' = prefix)
-  then true, String.sub x prefix' (x' - prefix')
-  else false, x
+  x' >= prefix' && (String.sub x 0 prefix' = prefix)
 
 let connect ?buffered ?sync ?lock name =
-  let legacy_buffered, path = remove_prefix buffered_prefix name in
+  let legacy_buffered = is_prefix ~prefix:buffered_prefix name in
   (* Keep support for the legacy buffered: prefix until version 3.x.y *)
   let buffered = if legacy_buffered then Some true else buffered in
   let config = Config.create ?buffered ?sync ?lock name in
@@ -247,7 +239,7 @@ let disconnect t = match t.fd with
   | None ->
     return ()
 
-let get_info { info } = return info
+let get_info x = return x.info
 
 let really_read fd = Lwt_cstruct.complete (Lwt_cstruct.read fd)
 let really_write fd = Lwt_cstruct.complete (Lwt_cstruct.write fd)
@@ -290,7 +282,6 @@ let seek_already_locked x fd offset =
   end else Lwt.return offset
 
 module Cstructs = struct
-  type t = Cstruct.t list
   (** A list of buffers, like a Unix iovec *)
 
   let pp_t ppf t =
@@ -334,10 +325,10 @@ let read x sector_start buffers =
   let offset = Int64.(mul sector_start (of_int x.info.sector_size)) in
   lwt_wrap_exn x "read" offset ~buffers
     (fun () ->
-      match x with
-      | { fd = None } ->
+      match x.fd with
+      | None ->
         return (Error `Disconnected)
-      | { fd = Some fd } ->
+      | Some fd ->
         let len = Cstructs.len buffers in
         let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
         if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
@@ -402,11 +393,11 @@ let write x sector_start buffers =
   lwt_wrap_exn x "write" offset ~buffers
     (fun () ->
       match x with
-      | { fd = None } ->
+      | { fd = None; _ } ->
         return (Error `Disconnected)
-      | { info = { read_write = false } } ->
+      | { info = { read_write = false; _ }; _ } ->
         return (Error `Is_read_only)
-      | { fd = Some fd } ->
+      | { fd = Some fd; _ } ->
         let len = Cstructs.len buffers in
         let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
         if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
@@ -524,9 +515,9 @@ external discard_job: Unix.file_descr -> int64 -> int64 -> unit Lwt_unix.job = "
 
 let discard t sector n =
   match t with
-  | { fd = None } -> return (Error `Disconnected)
-  | { info = { read_write = false } } -> return (Error `Is_read_only)
-  | { fd = Some fd } ->
+  | { fd = None; _ } -> return (Error `Disconnected)
+  | { info = { read_write = false; _ }; _ } -> return (Error `Is_read_only)
+  | { fd = Some fd; _ } ->
     if is_win32
     then return (Error `Unimplemented)
     else if n = 0L then Lwt.return (Ok ())
