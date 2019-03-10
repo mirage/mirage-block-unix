@@ -1,3 +1,8 @@
+## v2.11.1 (2019-03-10)
+* Fix some warnings in dev mode (#94 @emillon)
+* Clarify documentation about behaviour of `discard` (#95 @g2p)
+* Use modern cstruct-lwt ocamlfind name (#96 @g2p)
+
 ## v2.11.0 (2019-02-03)
 * Port build to Dune from jbuilder (#93 @avsm)
 * Update opam metadata to 2.0 format (#92 @avsm @jonludlam)
