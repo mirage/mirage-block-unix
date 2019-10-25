@@ -20,13 +20,13 @@ depends: [
   "ounit" {with-test}
   "diet" {with-test & >= "0.4"}
   "fmt" {with-test}
+  "conf-linux-libc-dev" {os = "linux"}
 ]
 build: [
   ["dune" "subst"] {pinned}
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
-depexts: ["linux-headers"] {os-distribution = "alpine"}
 synopsis: "MirageOS disk block driver for Unix"
 description: """
 Unix implementation of the Mirage `BLOCK_DEVICE` interface.
