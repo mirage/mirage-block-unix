@@ -68,10 +68,6 @@ let ftruncate fd size =
 
 open Lwt
 
-type 'a io = 'a Lwt.t
-
-type page_aligned_buffer = Cstruct.t
-
 module Config = struct
   type sync_behaviour = [
     | `ToOS

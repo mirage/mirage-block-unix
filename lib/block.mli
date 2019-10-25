@@ -17,7 +17,7 @@
 
 (** Block device on top of {!Lwt_unix} *)
 
-include Mirage_block_lwt.S
+include Mirage_block.S
 
 (** {2 Low-level convenience functions} *)
 
@@ -62,32 +62,32 @@ module Config: sig
   (** Parse the result of a previous [to_string] invocation *)
 end
 
-val connect : ?buffered:bool -> ?sync:(Config.sync_behaviour option) -> ?lock:bool -> string -> t io
+val connect : ?buffered:bool -> ?sync:(Config.sync_behaviour option) -> ?lock:bool -> string -> t Lwt.t
 (** [connect ?buffered ?sync ?lock path] connects to a block device on the filesystem
     at [path]. By default I/O is buffered and asynchronous. By default the file
     is unlocked. These defaults
     can be changed by supplying the optional arguments [~buffered:false] and
     [~sync:false] [~lock:true] *)
 
-val resize : t -> int64 -> (unit, write_error) result io
+val resize : t -> int64 -> (unit, write_error) result Lwt.t
 (** [resize t new_size_sectors] attempts to resize the connected device
     to have the given number of sectors. If successful, subsequent calls
     to [get_info] will reflect the new size. *)
 
-val flush : t -> (unit, write_error) result io
+val flush : t -> (unit, write_error) result Lwt.t
 (** [flush t] flushes any buffers, if the file has been opened in buffered
     mode *)
 
-val seek_unmapped: t -> int64 -> (int64, error) result io
+val seek_unmapped: t -> int64 -> (int64, error) result Lwt.t
 (** [seek_unmapped t start] returns the sector offset of the next guaranteed
     zero-filled region (typically guaranteed because it is unmapped) *)
 
-val seek_mapped: t -> int64 -> (int64, error) result io
+val seek_mapped: t -> int64 -> (int64, error) result Lwt.t
 (** [seek_mapped t start] returns the sector offset of the next regoin of the
     device which may have data in it (typically this is the next mapped
     region) *)
 
-val discard: t -> int64 -> int64 -> (unit, write_error) result io
+val discard: t -> int64 -> int64 -> (unit, write_error) result Lwt.t
 (** [discard sector n] signals that the [n] sectors starting at [sector]
     are no longer needed and the contents may be discarded.
     Reads following the discard will return zeroes.
@@ -97,5 +97,5 @@ val discard: t -> int64 -> int64 -> (unit, write_error) result io
 val to_config: t -> Config.t
 (** [to_config t] returns the configuration of a device *)
 
-val of_config: Config.t -> t io
+val of_config: Config.t -> t Lwt.t
 (** [of_config config] creates a fresh device from [config] *)
