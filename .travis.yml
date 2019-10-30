@@ -9,8 +9,7 @@ env:
    - PACKAGE="mirage-block-unix"
    - TESTS=true
  matrix:
-   - DISTRO=alpine OCAML_VERSION=4.07
-   - DISTRO=debian-stable OCAML_VERSION=4.05
+   - DISTRO=alpine OCAML_VERSION=4.09
+   - DISTRO=debian-stable OCAML_VERSION=4.08
    - DISTRO=debian-stable OCAML_VERSION=4.07
    - DISTRO=ubuntu-lts OCAML_VERSION=4.06
-   - DISTRO=ubuntu-lts OCAML_VERSION=4.07

@@ -15,22 +15,15 @@
  *)
 
 module type DISCARDABLE = sig
-  include Mirage_block_lwt.S
+  include Mirage_block.S
 
-  val discard: t -> int64 -> int64 -> (unit, write_error) result io
+  val discard: t -> int64 -> int64 -> (unit, write_error) result Lwt.t
 end
 
 let debug = ref false
 
 module Make(B: DISCARDABLE) = struct
-  module SectorSet = Diet.Make(struct
-    include Int64
-    open Sexplib.Std
-    type t' = int64 [@@deriving sexp]
-    let sexp_of_t = sexp_of_t'
-    let t_of_sexp = t'_of_sexp
-  end)
-
+  module SectorSet = Diet.Make(Int64)
 
   (* Randomly write and discard, checking with read whether the expected data is in
     each sector. By convention we write the sector index into each sector so we
@@ -40,7 +33,7 @@ module Make(B: DISCARDABLE) = struct
     B.get_info block
     >>= fun info ->
     let nr_sectors = info.Mirage_block.size_sectors in
-  
+
     (* add to this set on write, remove on discard *)
     let i = SectorSet.Interval.make 0L (Int64.pred info.Mirage_block.size_sectors) in
     let none = SectorSet.empty in
@@ -197,21 +190,21 @@ module Make(B: DISCARDABLE) = struct
       (fun e ->
         Printf.fprintf stderr "Test failed on iteration # %d\n%!" !nr_iterations;
         Printexc.print_backtrace stderr;
-        let s = Sexplib.Sexp.to_string_hum (SectorSet.sexp_of_t !written) in
+        let s = Fmt.to_to_string SectorSet.pp !written in
         Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] ~perm:0o644 ~mode:Lwt_io.output "/tmp/written.sexp"
         >>= fun oc ->
         Lwt_io.write oc s
         >>= fun () ->
         Lwt_io.close oc
         >>= fun () ->
-        let s = Sexplib.Sexp.to_string_hum (SectorSet.sexp_of_t !empty) in
+        let s = Fmt.to_to_string SectorSet.pp !empty in
         Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] ~perm:0o644 ~mode:Lwt_io.output "/tmp/empty.sexp"
         >>= fun oc ->
         Lwt_io.write oc s
         >>= fun () ->
         Lwt_io.close oc
         >>= fun () ->
-        let s = Sexplib.Sexp.to_string_hum (SectorSet.sexp_of_t !undefined) in
+        let s = Fmt.to_to_string SectorSet.pp !undefined in
         Lwt_io.open_file ~flags:[Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] ~perm:0o644 ~mode:Lwt_io.output "/tmp/undefined.sexp"
         >>= fun oc ->
         Lwt_io.write oc s
