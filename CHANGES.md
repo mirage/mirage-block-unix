@@ -1,3 +1,9 @@
+## v2.12.0 (2019-10-30)
+
+* Adapt to mirage-block 2.0.0 interface changes (#99 @hannesm)
+* Fix opam file (#84 @djs55)
+* Fix testsuite bitrot (#99 @hannesm)
+
 ## v2.11.2 (2019-05-11)
 * Fix test use of io-page-unix to work with io-page>2.0.0 (@avsm)
 * Remove unnecessary opam dependencies and refine `ppx_sexp_conv` one (@avsm)
