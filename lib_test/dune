@@ -1,18 +1,13 @@
 (executables
+ (modes byte exe)
  (names benchmark test stress)
- (libraries lwt cstruct-lwt mirage-block-unix cstruct io-page io-page-unix
-   logs logs.fmt oUnit diet))
+ (libraries lwt cstruct-lwt mirage-block-unix cstruct io-page logs logs.fmt
+   alcotest diet))
 
-(alias
- (name runtest)
- (deps
-  (:< test.exe))
- (action
-  (run %{<} -runner sequential)))
+(rule
+ (alias runtest)
+ (action (run ./test.exe --color=always)))
 
-(alias
- (name runtest)
- (deps
-  (:< stress.exe))
- (action
-  (run %{<})))
+(rule
+ (alias runtest)
+ (action (run ./stress.exe)))
