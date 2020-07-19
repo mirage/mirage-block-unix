@@ -250,7 +250,7 @@ let _ =
     let path_already_exists = Sys.file_exists path in
     ( if not path_already_exists then create_file path sectors else Lwt.return_unit )
     >>= fun () ->
-    Block.connect ~buffered:false path
+    Block.connect path
     >>= fun block ->
 
     Lwt.catch
