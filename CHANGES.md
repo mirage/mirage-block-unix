@@ -1,3 +1,7 @@
+## v2.12.1 (2020-07-19)
+
+* Fix stress test in environments without `O_DIRECT` (#103 @kit-ty-kate)
+
 ## v2.12.0 (2019-10-30)
 
 * Adapt to mirage-block 2.0.0 interface changes (#99 @hannesm)
