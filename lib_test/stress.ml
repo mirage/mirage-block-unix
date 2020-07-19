@@ -250,7 +250,9 @@ let _ =
     let path_already_exists = Sys.file_exists path in
     ( if not path_already_exists then create_file path sectors else Lwt.return_unit )
     >>= fun () ->
-    Block.connect ~buffered:false path
+    (* NOTE: This is buffered because open(2) with O_DIRECT will fail with
+       EINVAL on some Linux systems. *)
+    Block.connect ~buffered:true path
     >>= fun block ->
 
     Lwt.catch
