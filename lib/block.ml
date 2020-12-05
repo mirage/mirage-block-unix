@@ -90,10 +90,12 @@ module Config = struct
     sync: sync_behaviour option;
     path: string;
     lock: bool;
+    prefered_sector_size : int option;
   }
 
-  let create ?(buffered = true) ?(sync = Some `ToOS) ?(lock = false) path =
-    { buffered; sync; path; lock }
+  let create ?(buffered = true) ?(sync = Some `ToOS) ?(lock = false)
+      ?(prefered_sector_size = None) path =
+    { buffered; sync; path; lock; prefered_sector_size }
 
   let to_string t =
     let query = [
@@ -112,8 +114,11 @@ module Config = struct
       let buffered = try List.assoc "buffered" query = [ "1" ] with Not_found -> false in
       let sync     = try sync_behaviour_of_string @@ List.hd @@ List.assoc "sync" query with Not_found -> None in
       let lock     = try List.assoc "lock" query = [ "1" ] with Not_found -> false in
+      let prefered_sector_size =
+        try Some (int_of_string @@ List.hd @@ List.assoc "prefered_sector_size" query) with Not_found -> None
+      in
       let path = Uri.(pct_decode @@ path u) in
-      Ok { buffered; sync; path; lock }
+      Ok { buffered; sync; path; lock; prefered_sector_size }
     | _ ->
       Error (`Msg "Config.to_string expected a string of the form file://<path>?sync=(none|os|drive)&buffered=(0|1)&lock=(0|1)")
 end
@@ -156,10 +161,10 @@ let get_file_size filename fd =
       (`Msg
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
 
-let get_sector_size filename fd =
+let get_sector_size ?(prefered_sector_size = 512) filename fd =
   stat filename fd >>*= fun st ->
   match st.Unix.LargeFile.st_kind with
-  | Unix.S_REG -> Lwt.return @@ Ok 512 (* FIXME: no easy way to determine this *)
+  | Unix.S_REG -> Lwt.return @@ Ok prefered_sector_size
   | Unix.S_BLK -> Lwt.return @@ blkgetsectorsize fd
   | _ ->
     Log.err (fun f -> f "get_sector_size %s: entity is neither a file nor a block device" filename);
@@ -167,7 +172,7 @@ let get_sector_size filename fd =
       (`Msg
          (Printf.sprintf "get_sector_size %s: neither a file nor a block device" filename))
 
-let of_config ({ Config.buffered; path; lock; sync = _ } as config) =
+let of_config ({ Config.buffered; path; lock; sync = _; prefered_sector_size } as config) =
   let openfile, use_fsync_after_write = match buffered, is_win32 with
     | true, _ -> Raw.openfile_buffered, false
     | false, false -> Raw.openfile_unbuffered, false
@@ -191,7 +196,7 @@ let of_config ({ Config.buffered; path; lock; sync = _ } as config) =
       fail_with e
     | Error _ -> fail_with "mirage-block-unix:of_config: unknown error"
     | Ok size_bytes ->
-      get_sector_size path fd >>= function
+      get_sector_size ?prefered_sector_size path fd >>= function
       | Error (`Msg e) ->
         Unix.close fd;
         fail_with e
@@ -220,11 +225,11 @@ let is_prefix ~prefix x =
   let prefix' = String.length prefix and x' = String.length x in
   x' >= prefix' && (String.sub x 0 prefix' = prefix)
 
-let connect ?buffered ?sync ?lock name =
+let connect ?buffered ?sync ?lock ?prefered_sector_size name =
   let legacy_buffered = is_prefix ~prefix:buffered_prefix name in
   (* Keep support for the legacy buffered: prefix until version 3.x.y *)
   let buffered = if legacy_buffered then Some true else buffered in
-  let config = Config.create ?buffered ?sync ?lock name in
+  let config = Config.create ?buffered ?sync ?lock ?prefered_sector_size name in
   of_config config
 
 let disconnect t = match t.fd with

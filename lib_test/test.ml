@@ -251,9 +251,9 @@ let tests = [
   *)
   "test read/write after last sector" >:: test_eof;
   "test flush" >:: test_flush;
-  test_parse_print_config { Block.Config.buffered = true; sync = None; path = "C:\\cygwin"; lock = false };
-  test_parse_print_config { Block.Config.buffered = false; sync = Some `ToOS; path = "/var/tmp/foo.qcow2"; lock = false };
-  test_parse_print_config { Block.Config.buffered = false; sync = Some `ToDrive; path = "/var/tmp/foo.qcow2"; lock = true };
+  test_parse_print_config { Block.Config.buffered = true; sync = None; path = "C:\\cygwin"; lock = false; prefered_sector_size = None };
+  test_parse_print_config { Block.Config.buffered = false; sync = Some `ToOS; path = "/var/tmp/foo.qcow2"; lock = false; prefered_sector_size = Some 4096 };
+  test_parse_print_config { Block.Config.buffered = false; sync = Some `ToDrive; path = "/var/tmp/foo.qcow2"; lock = true; prefered_sector_size = None };
   "test write then read" >:: test_write_read;
   "test that writes fail if the buffer has a bad length" >:: test_buffer_wrong_length;
   "files which aren't a whole number of sectors" >:: test_not_multiple_of_sectors;
