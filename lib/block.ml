@@ -255,12 +255,12 @@ let lwt_wrap_exn t op offset ?(buffers=[]) f =
   let describe_buffers buffers =
     if buffers = []
     then ""
-    else "with buffers of length [ " ^ (String.concat ", " (List.map (fun b -> string_of_int @@ Cstruct.len b) buffers)) ^ " ]" in
+    else "with buffers of length [ " ^ (String.concat ", " (List.map (fun b -> string_of_int @@ Cstruct.length b) buffers)) ^ " ]" in
   (* Buffer must be a multiple of sectors in length *)
   Lwt_list.fold_left_s (fun acc b -> match acc with
     | Error e -> Lwt.return (Error e)
     | Ok () ->
-      let len = Cstruct.len b in
+      let len = Cstruct.length b in
       if len mod t.info.sector_size <> 0
       then fatalf "%s: buffer length (%d) is not a multiple of sector_size (%d) for file %s" op len t.info.sector_size t.config.Config.path
       else Lwt.return (Ok ())
@@ -290,7 +290,7 @@ module Cstructs = struct
       Format.fprintf ppf "[%d,%d](%d)" t.Cstruct.off t.Cstruct.len (Bigarray.Array1.dim t.Cstruct.buffer)
     ) t
 
-  let len = List.fold_left (fun acc c -> Cstruct.len c + acc) 0
+  let len = List.fold_left (fun acc c -> Cstruct.length c + acc) 0
 
   let err fmt =
     let b = Buffer.create 20 in                         (* for thread safety. *)
@@ -302,7 +302,7 @@ module Cstructs = struct
     if x = 0 then t else match t with
     | [] -> err "Cstructs.shift %a %d" pp_t t x
     | y :: ys ->
-      let y' = Cstruct.len y in
+      let y' = Cstruct.length y in
       if y' > x
       then Cstruct.shift y x :: ys
       else shift ys (x - y')
@@ -346,7 +346,7 @@ let read x sector_start buffers =
                       let rec loop = function
                         | [] -> Lwt.return_unit
                         | b :: bs ->
-                          let virtual_zeroes = Int64.(sub (add offset (of_int (Cstruct.len b))) x.size_bytes) in
+                          let virtual_zeroes = Int64.(sub (add offset (of_int (Cstruct.length b))) x.size_bytes) in
                           ( if virtual_zeroes <= 0L
                             then really_read fd b
                             else begin
@@ -361,7 +361,7 @@ let read x sector_start buffers =
                                   | e -> Lwt.fail e)
                             end )
                           >>= fun () ->
-                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
+                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.length b)));
                           loop bs in
                       loop buffers
                     end else begin
@@ -417,7 +417,7 @@ let write x sector_start buffers =
                         | b :: bs ->
                           really_write fd b
                           >>= fun () ->
-                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.len b)));
+                          x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.length b)));
                           loop bs in
                       loop buffers
                     end else begin

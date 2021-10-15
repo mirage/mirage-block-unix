@@ -224,12 +224,12 @@ exception Cstruct_differ
 let cstruct_equal a b =
   let check_contents a b =
     try
-      for i = 0 to Cstruct.len a - 1 do
+      for i = 0 to Cstruct.length a - 1 do
         let a' = Cstruct.get_char a i in
         let b' = Cstruct.get_char b i in
         if a' <> b' then raise Cstruct_differ
       done;
       true
     with _ -> false in
-  (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
+  (Cstruct.length a = (Cstruct.length b)) && (check_contents a b)
 

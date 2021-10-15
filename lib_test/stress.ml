@@ -57,7 +57,7 @@ module Make(B: DISCARDABLE) = struct
         assert (n <= buffer_size_sectors);
         let buf = Cstruct.sub write_buffer 0 (Int64.to_int n * info.Mirage_block.sector_size) in
         let rec for_each_sector x remaining =
-          if Cstruct.len remaining = 0 then () else begin
+          if Cstruct.length remaining = 0 then () else begin
             let sector = Cstruct.sub remaining 0 512 in
             (* Only write the first byte *)
             Cstruct.BE.set_uint64 sector 0 x;
@@ -126,7 +126,7 @@ module Make(B: DISCARDABLE) = struct
               | Error _ -> failwith "read"
               | Ok () ->
                 let rec for_each_sector x remaining =
-                  if Cstruct.len remaining = 0 then () else begin
+                  if Cstruct.length remaining = 0 then () else begin
                     let expected = p x in
                     let sector = Cstruct.sub remaining 0 512 in
                     check_contents x sector expected;

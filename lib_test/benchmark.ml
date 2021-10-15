@@ -18,8 +18,8 @@
 
 let split_into buf into =
   let rec loop acc remaining =
-    if Cstruct.len remaining = 0 then List.rev acc else begin
-      let to_take = min into (Cstruct.len remaining) in
+    if Cstruct.length remaining = 0 then List.rev acc else begin
+      let to_take = min into (Cstruct.length remaining) in
       loop (Cstruct.sub remaining 0 to_take :: acc) (Cstruct.shift remaining to_take)
     end in
   loop [] buf
