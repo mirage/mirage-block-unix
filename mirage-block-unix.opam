@@ -9,15 +9,17 @@ tags:         "org:mirage"
 license:      "ISC"
 depends: [
   "ocaml" {>= "4.06.0"}
-  "dune" {>="1.0"}
-  "cstruct" {>= "3.0.0"}
+  "dune" {>= "1.0"}
+  "cstruct" {>= "6.0.0"}
   "cstruct-lwt"
   "mirage-block" {>= "2.0.0"}
   "rresult"
-  "io-page-unix" {>= "2.0.0"}
   "uri" {>= "1.9.0"}
   "logs"
-  "ounit" {with-test}
+  "lwt" {>= "5.4.2"}
+  "io-page" {>= "2.0.0"}
+  "io-page-unix" {with-test & >= "2.0.0"}
+  "ounit2" {with-test}
   "diet" {with-test & >= "0.4"}
   "fmt" {with-test}
   "conf-linux-libc-dev" {os = "linux"}

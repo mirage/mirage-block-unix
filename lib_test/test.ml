@@ -216,7 +216,7 @@ let test_not_multiple_of_sectors () =
         | Ok () ->
         let message' = Cstruct.(to_string (sub sector 0 (String.length message))) in
         assert_equal ~printer:(fun x -> x) message message';
-        for i = String.length message to Cstruct.len sector - 1 do
+        for i = String.length message to Cstruct.length sector - 1 do
           assert_equal ~printer:string_of_int 0 (Cstruct.get_uint8 sector i)
         done;
         (* We should be able to write 1 sector *)
@@ -228,7 +228,7 @@ let test_not_multiple_of_sectors () =
         Block.read device 0L [ sector ] >>= function
         | Error _ -> failwith (Printf.sprintf "Block.read %s: failed to read sector 0" file)
         | Ok () ->
-        for i = 0 to Cstruct.len sector - 1 do
+        for i = 0 to Cstruct.length sector - 1 do
           assert_equal ~printer:string_of_int 0xff (Cstruct.get_uint8 sector i)
         done;
         (* The file should still be 1 sector in length *)
