@@ -520,7 +520,7 @@ let discard t sector n =
   | { info = { read_write = false; _ }; _ } -> return (Error `Is_read_only)
   | { fd = Some fd; _ } ->
     if is_win32
-    then return (Error `Unimplemented)
+    then return (Error (`Msg "not implemented"))
     else if n = 0L then Lwt.return (Ok ())
     else lwt_wrap_exn t "discard" sector
       (fun () ->
