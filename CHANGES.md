@@ -1,3 +1,9 @@
+## v2.13.0 (2022-01-16)
+
+* Add a configuration field for the size of sectors (#106, @Julow, @hannesm, @dinosaure)
+* Update to cstruct.6.0.0 (#108, @MisterDA, @dinosaure)
+* Depends on `io-page.unix` instead of `io-page-unix` (@dinosaure)
+
 ## v2.12.1 (2020-07-19)
 
 * Fix stress test in environments without `O_DIRECT` (#103 @kit-ty-kate)
