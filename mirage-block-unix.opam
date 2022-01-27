@@ -13,7 +13,6 @@ depends: [
   "cstruct" {>= "6.0.0"}
   "cstruct-lwt"
   "mirage-block" {>= "2.0.0"}
-  "rresult"
   "uri" {>= "1.9.0"}
   "logs"
   "lwt" {>= "5.4.2"}

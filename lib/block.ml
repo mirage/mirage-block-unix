@@ -141,14 +141,30 @@ let (>>*=) m f = m >>= function
   | Ok x -> f x
   | Error x -> Lwt.return (Error x)
 
+let trap_exn f v =
+  try Ok (f v)
+  with exn -> let bt = Printexc.get_raw_backtrace () in
+    Error (`Exn_trap (exn, bt))
+
+let error_msgf fmt = Format.kasprintf (fun msg -> Error (`Msg msg)) fmt
+let pp_exn_trap ppf (`Exn_trap (exn, bt)) =
+  Format.fprintf ppf "%s@\n" (Printexc.to_string exn) ;
+  let lines = String.split_on_char '\n' (Printexc.raw_backtrace_to_string bt) in
+  List.iter (fun line -> Format.fprintf ppf "%s@\n" line) lines
+
+let error_exn_trap_to_msg = function
+  | Ok _ as v -> v
+  | Error trap ->
+    error_msgf "Unexpected exception:@\n%a" pp_exn_trap trap
+
 let stat _filename fd =
-  Rresult.R.trap_exn Unix.LargeFile.fstat fd |> Rresult.R.error_exn_trap_to_msg |> Lwt.return
+  trap_exn Unix.LargeFile.fstat fd |> error_exn_trap_to_msg |> Lwt.return
 
 let blkgetsize _filename fd =
-  Rresult.R.trap_exn Raw.blkgetsize fd |> Rresult.R.error_exn_trap_to_msg
+  trap_exn Raw.blkgetsize fd |> error_exn_trap_to_msg
 
 let blkgetsectorsize fd =
-  Rresult.R.trap_exn Raw.blkgetsectorsize fd |> Rresult.R.error_exn_trap_to_msg
+  trap_exn Raw.blkgetsectorsize fd |> error_exn_trap_to_msg
 
 let get_file_size filename fd =
   stat filename fd >>*= fun st ->
