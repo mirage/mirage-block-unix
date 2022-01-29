@@ -18,14 +18,12 @@ depends: [
   "logs"
   "lwt" {>= "5.4.2"}
   "io-page" {>= "2.0.0"}
-  "io-page-unix" {with-test & >= "2.0.0"}
   "ounit2" {with-test}
   "diet" {with-test & >= "0.4"}
   "fmt" {with-test}
   "conf-linux-libc-dev" {os = "linux"}
 ]
 build: [
-  ["dune" "subst"] {pinned}
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
