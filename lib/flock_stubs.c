@@ -44,9 +44,9 @@ CAMLprim value stub_flock(value fd, value ex, value nb){
   if (Bool_val(nb)) {
     flags |= LOCK_NB;
   }
-  enter_blocking_section();
+  caml_enter_blocking_section();
   result = flock(c_fd, flags);
-  leave_blocking_section();
+  caml_leave_blocking_section();
 
   if (result != 0) {
     uerror("flock", fd);

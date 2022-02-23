@@ -44,7 +44,7 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
 #else
   const char *filename_c = strdup(String_val(filename));
 
-  enter_blocking_section();
+  caml_enter_blocking_section();
 #ifdef O_DIRECT
   int flags = O_DIRECT;
 #else
@@ -60,7 +60,7 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
 #ifndef O_DIRECT
   ret = fcntl(fd, F_NOCACHE);
 #endif
-  leave_blocking_section();
+  caml_leave_blocking_section();
 
   free((void*)filename_c);
 
