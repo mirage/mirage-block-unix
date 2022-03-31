@@ -123,10 +123,10 @@ CAMLprim value stub_blkgetsize(value fd){
   int c_fd = Int_val(fd); /* safe only because Unix.file_descr = int */
   int success = -1;
 
-  enter_blocking_section();
+  caml_enter_blocking_section();
   if (blkgetsize(c_fd, &size_in_bytes) == 0)
     success = 0;
-  leave_blocking_section();
+  caml_leave_blocking_section();
 
   if (success == -1) uerror("BLKGETSIZE", Nothing);
 
@@ -141,10 +141,10 @@ CAMLprim value stub_blkgetsectorsize(value fd){
   int c_fd = Int_val(fd); /* safe only because Unix.file_descr = int */
   int success = -1;
 
-  enter_blocking_section();
+  caml_enter_blocking_section();
   if (blkgetsectorsize(c_fd, &size) == 0)
     success = 0;
-  leave_blocking_section();
+  caml_leave_blocking_section();
 
   if (success == -1) uerror("blkgetsectorsize", Nothing);
 
