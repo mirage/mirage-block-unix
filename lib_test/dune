@@ -1,6 +1,6 @@
 (executables
  (names benchmark test stress)
- (libraries lwt cstruct-lwt mirage-block-unix cstruct io-page io-page.unix
+ (libraries lwt cstruct-lwt mirage-block-unix cstruct io-page
    logs logs.fmt ounit2 diet))
 
 (alias
