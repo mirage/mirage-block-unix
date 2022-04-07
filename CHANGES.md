@@ -1,6 +1,7 @@
-## v2.14.0 (2022-03-31)
+## v2.14.0 (2022-04-07)
 
 * OCaml 5.00 support (#112, @Sudha247)
+* Remove io-page.unix dependency, require io-page >= 2.4.0 (#114 @hannesm)
 
 ## v2.13.0 (2022-01-16)
 
