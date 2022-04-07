@@ -17,7 +17,7 @@ depends: [
   "uri" {>= "1.9.0"}
   "logs"
   "lwt" {>= "5.4.2"}
-  "io-page" {>= "2.0.0"}
+  "io-page" {>= "2.4.0"}
   "ounit2" {with-test}
   "diet" {with-test & >= "0.4"}
   "fmt" {with-test}
