@@ -1,3 +1,7 @@
+## v2.14.0 (2022-03-31)
+
+* OCaml 5.00 support (#112, @Sudha247)
+
 ## v2.13.0 (2022-01-16)
 
 * Add a configuration field for the size of sectors (#106, @Julow, @hannesm, @dinosaure)
