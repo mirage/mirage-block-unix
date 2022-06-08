@@ -31,6 +31,7 @@
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
+#include <caml/unixsupport.h>
 
 #ifdef __linux__
 #include <linux/fs.h>
@@ -111,10 +112,6 @@ int blkgetsectorsize(int fd, int *size)
 #else
 # error "Unable to query block device size: unsupported platform, please report."
 #endif
-
-/* ocaml/ocaml/unixsupport.c */
-extern void uerror(char *cmdname, value cmdarg);
-#define Nothing ((value) 0)
 
 CAMLprim value stub_blkgetsize(value fd){
   CAMLparam1(fd);
