@@ -30,10 +30,7 @@
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
-
-/* ocaml/ocaml/unixsupport.c */
-extern void uerror(char *cmdname, value cmdarg);
-#define Nothing ((value) 0)
+#include <caml/unixsupport.h>
 
 CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
   CAMLparam3(filename, rw, perm);

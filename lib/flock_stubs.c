@@ -24,9 +24,7 @@
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
-
-/* ocaml/ocaml/unixsupport.c */
-extern void uerror(char *cmdname, value cmdarg);
+#include <caml/unixsupport.h>
 
 CAMLprim value stub_flock(value fd, value ex, value nb){
   CAMLparam3(fd, ex, nb);

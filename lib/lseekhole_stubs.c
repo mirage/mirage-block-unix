@@ -28,10 +28,7 @@
 #include <caml/memory.h>
 #include <caml/signals.h>
 #include <caml/fail.h>
-
-/* ocaml/ocaml/unixsupport.c */
-extern void uerror(char *cmdname, value cmdarg);
-#define Nothing ((value) 0)
+#include <caml/unixsupport.h>
 
 CAMLprim value stub_lseek_data_64(value fd, value ofs){
   CAMLparam2(fd, ofs);
