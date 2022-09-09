@@ -204,7 +204,7 @@ let of_config ({ Config.buffered; path; lock; sync = _; prefered_sector_size } a
         fail_with "mirage-block-unix:of_config: file not sector-aligned"
       | Ok sector_size ->
         let size_sectors = Int64.(div size_bytes (of_int sector_size)) in
-        assert (not (Int64.(mul size_sectors (of_int sector_size)) > size_bytes && not(buffered)));
+        assert (Int64.(mul size_sectors (of_int sector_size)) = size_bytes);
         let fd = Lwt_unix.of_unix_file_descr fd in
         let m = Lwt_mutex.create () in
         let seek_offset = 0L in
