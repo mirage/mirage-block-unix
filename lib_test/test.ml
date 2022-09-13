@@ -202,41 +202,12 @@ let test_not_multiple_of_sectors () =
         Cstruct.blit_from_string message 0 buf 0 (String.length message);
         Lwt_cstruct.(complete (write fd) buf) >>= fun () ->
         Lwt_unix.close fd >>= fun () ->
-        (* We should see 1 sector *)
-        (* NB we only test buffered mode because O_DIRECT read on Linux will fail
-           with EINVAL if the file length is not sector-aligned. Arguably buffered
-           mode should actually be the default anyway. *)
-        Block.connect ~buffered:true file >>= fun device ->
-        Block.get_info device >>= fun info1 ->
-        assert_equal ~printer:Int64.to_string 1L info1.Mirage_block.size_sectors;
-        (* We should be able to read 1 sector, padded with zeroes *)
-        let sector = Cstruct.create info1.Mirage_block.sector_size in
-        Block.read device 0L [ sector ] >>= function
-        | Error _ -> failwith (Printf.sprintf "Block.read %s: failed to read sector 0" file)
-        | Ok () ->
-        let message' = Cstruct.(to_string (sub sector 0 (String.length message))) in
-        assert_equal ~printer:(fun x -> x) message message';
-        for i = String.length message to Cstruct.length sector - 1 do
-          assert_equal ~printer:string_of_int 0 (Cstruct.get_uint8 sector i)
-        done;
-        (* We should be able to write 1 sector *)
-        Cstruct.memset sector 0xff;
-        Block.write device 0L [ sector ] >>= function
-        | Error _ -> failwith (Printf.sprintf "Block.write %s: failed to write sector 0" file)
-        | Ok () ->
-        (* We should be able to read back the contents *)
-        Block.read device 0L [ sector ] >>= function
-        | Error _ -> failwith (Printf.sprintf "Block.read %s: failed to read sector 0" file)
-        | Ok () ->
-        for i = 0 to Cstruct.length sector - 1 do
-          assert_equal ~printer:string_of_int 0xff (Cstruct.get_uint8 sector i)
-        done;
-        (* The file should still be 1 sector in length *)
-        Block.disconnect device >>= fun () ->
-        Block.connect file >>= fun device ->
-        Block.get_info device >>= fun info1 ->
-        assert_equal ~printer:Int64.to_string 1L info1.Mirage_block.size_sectors;
-        Block.disconnect device
+        Lwt.catch
+          (fun () -> Block.connect ~buffered:true file >>= fun _ ->
+            assert_failure "expected Block.connect to raise exception on misaligned file")
+          (function
+            | Failure _ -> Lwt.return_unit
+            | exn -> raise exn)
       )
     (fun () ->
       Lwt_unix.unlink file
