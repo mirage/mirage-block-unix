@@ -156,7 +156,7 @@ let get_file_size filename fd =
   | Unix.S_REG -> Lwt.return @@ Ok st.Unix.LargeFile.st_size
   | Unix.S_BLK -> Lwt.return @@ blkgetsize () fd
   | _ ->
-    Log.err (fun f -> f "get_file_size %s: entity is neither a file nor a block device" filename);
+    Log.debug (fun f -> f "get_file_size %s: entity is neither a file nor a block device" filename);
     Lwt.return @@ Error
       (`Msg
          (Printf.sprintf "get_file_size %s: neither a file nor a block device" filename))
@@ -167,7 +167,7 @@ let get_sector_size ?(prefered_sector_size = 512) filename fd =
   | Unix.S_REG -> Lwt.return @@ Ok prefered_sector_size
   | Unix.S_BLK -> Lwt.return @@ blkgetsectorsize fd
   | _ ->
-    Log.err (fun f -> f "get_sector_size %s: entity is neither a file nor a block device" filename);
+    Log.debug (fun f -> f "get_sector_size %s: entity is neither a file nor a block device" filename);
     Lwt.return @@ Error
       (`Msg
          (Printf.sprintf "get_sector_size %s: neither a file nor a block device" filename))
@@ -249,7 +249,7 @@ open Mirage_block
 
 let lwt_wrap_exn t op offset ?(buffers=[]) f =
   let fatalf fmt = Printf.ksprintf (fun s ->
-      Log.err (fun f -> f "%s" s);
+      Log.debug (fun f -> f "%s" s);
       return (Error (`Msg s))
     ) fmt in
   let describe_buffers buffers =
@@ -333,7 +333,7 @@ let read x sector_start buffers =
         let len = Cstructs.len buffers in
         let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
         if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
-          Log.err (fun f -> f "read beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
+          Log.debug (fun f -> f "read beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
                       sector_start len_sectors x.info.size_sectors);
           fail End_of_file
         end else begin
@@ -402,7 +402,7 @@ let write x sector_start buffers =
         let len = Cstructs.len buffers in
         let len_sectors = (len + x.info.sector_size - 1) / x.info.sector_size in
         if Int64.(add sector_start (of_int len_sectors) > x.info.size_sectors) then begin
-          Log.err (fun f -> f "write beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
+          Log.debug (fun f -> f "write beyond end of file: sector_start (%Ld) + len (%d) > size_sectors (%Ld)"
                       sector_start len_sectors x.info.size_sectors);
           fail End_of_file
         end else begin
