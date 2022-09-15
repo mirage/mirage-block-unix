@@ -27,9 +27,7 @@ let debug fmt = log fmt
 let warn fmt = debug fmt
 let error fmt = debug fmt
 
-let alloc bytes =
-  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
-  Cstruct.sub pages 0 bytes
+let alloc = Cstruct.create
 
 let finally f g =
   try
