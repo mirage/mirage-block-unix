@@ -203,11 +203,15 @@ let test_not_multiple_of_sectors () =
         Lwt_cstruct.(complete (write fd) buf) >>= fun () ->
         Lwt_unix.close fd >>= fun () ->
         Lwt.catch
-          (fun () -> Block.connect ~buffered:true file >>= fun _ ->
-            assert_failure "expected Block.connect to raise exception on misaligned file")
+          (fun () -> Block.connect ~buffered:true file >>= fun b ->
+            Lwt.return (Error b))
           (function
-            | Failure _ -> Lwt.return_unit
-            | exn -> raise exn)
+            | Failure _ -> Lwt.return (Ok ())
+            | exn -> raise exn) >>= function
+        | Ok () -> Lwt.return_unit
+        | Error b ->
+          Block.disconnect b >>= fun () ->
+          assert_failure "expected Block.connect to raise exception on misaligned file"
       )
     (fun () ->
       Lwt_unix.unlink file
