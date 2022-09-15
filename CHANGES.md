@@ -1,6 +1,9 @@
-## Unreleased
+## v2.14.2 (2022-09-15)
 
-* Raise an exception on connect if the file is not aligned to the `sector_size` (#117)
+* Raise an exception on connect if the file is not aligned to the `sector_size` (#117, @reynir)
+* Demote log to debug when an error is returned (#119 @reynir, fixes #109)
+* Remove io-page dependency (#118 @hannesm)
+* Add GitHub actions for testing on macos and windows (retire Appveyor)
 
 ## v2.14.1 (2022-06-15)
 
