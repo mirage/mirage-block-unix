@@ -193,29 +193,24 @@ let test_parse_print_config config =
 let test_not_multiple_of_sectors () =
   let t =
     let file = find_unused_file () in
-    Lwt.finalize
-      (fun () ->
-        (* Create a file containing < 512 bytes *)
-        Lwt_unix.openfile file [ Lwt_unix.O_CREAT; Lwt_unix.O_WRONLY ] 0o0644 >>= fun fd ->
-        let message = "Hello" in
-        let buf = Cstruct.create (String.length message) in
-        Cstruct.blit_from_string message 0 buf 0 (String.length message);
-        Lwt_cstruct.(complete (write fd) buf) >>= fun () ->
-        Lwt_unix.close fd >>= fun () ->
-        Lwt.catch
-          (fun () -> Block.connect ~buffered:true file >>= fun b ->
-            Lwt.return (Error b))
-          (function
-            | Failure _ -> Lwt.return (Ok ())
-            | exn -> raise exn) >>= function
-        | Ok () -> Lwt.return_unit
-        | Error b ->
-          Block.disconnect b >>= fun () ->
-          assert_failure "expected Block.connect to raise exception on misaligned file"
-      )
-    (fun () ->
-      Lwt_unix.unlink file
-    ) in
+    (* Create a file containing < 512 bytes *)
+    Lwt_unix.openfile file [ Lwt_unix.O_CREAT; Lwt_unix.O_WRONLY ] 0o0644 >>= fun fd ->
+    let message = "Hello" in
+    let buf = Cstruct.create (String.length message) in
+    Cstruct.blit_from_string message 0 buf 0 (String.length message);
+    Lwt_cstruct.(complete (write fd) buf) >>= fun () ->
+    Lwt_unix.close fd >>= fun () ->
+    Lwt.catch
+      (fun () -> Block.connect ~buffered:true file >>= fun b ->
+        Lwt.return (Error b))
+      (function
+        | Failure _ -> Lwt.return (Ok ())
+        | exn -> raise exn) >>= function
+    | Ok () -> Lwt.return_unit
+    | Error b ->
+      Block.disconnect b >>= fun () ->
+      assert_failure "expected Block.connect to raise exception on misaligned file"
+  in
   Lwt_main.run t
 
 let tests = [
