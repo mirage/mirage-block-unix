@@ -1,3 +1,7 @@
+## Unreleased
+
+* Raise an exception on connect if the file is not aligned to the `sector_size` (#117)
+
 ## v2.14.1 (2022-06-15)
 
 * Ensure compatibility with OCaml 5.0, after `uerror` change (ocaml/ocaml#10926) (#115, @dra27)

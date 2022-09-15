@@ -130,7 +130,6 @@ type t = {
      unnecessarily, speeding up sequential read and write *)
   m: Lwt_mutex.t;
   mutable info: Mirage_block.info;
-  size_bytes: int64; (* used to handle the last sector, if the file isn't a multiple *)
   config: Config.t;
   use_fsync_after_write: bool;
 }
@@ -201,19 +200,17 @@ let of_config ({ Config.buffered; path; lock; sync = _; prefered_sector_size } a
         Unix.close fd;
         fail_with e
       | Error _ -> fail_with "mirage-block-unix:of_config: unknown error"
+      | Ok sector_size when Int64.(rem size_bytes (of_int sector_size)) <> 0L ->
+        fail_with "mirage-block-unix:of_config: file not sector-aligned"
       | Ok sector_size ->
-        (* If the file length is not sector-aligned, we would like to represent the
-           last bytes as a sector with zero-padding. Unfortunately on Linux with
-           O_DIRECT `read` will fail with EINVAL. *)
-        let size_sectors = Int64.(div (add size_bytes (of_int (sector_size-1))) (of_int sector_size)) in
-        if Int64.(mul size_sectors (of_int sector_size)) > size_bytes && not(buffered)
-        then Log.warn (fun f -> f "Length not sector aligned: O_DIRECT will fail with EINVAL on some platforms");
+        let size_sectors = Int64.(div size_bytes (of_int sector_size)) in
+        assert (Int64.(mul size_sectors (of_int sector_size)) = size_bytes);
         let fd = Lwt_unix.of_unix_file_descr fd in
         let m = Lwt_mutex.create () in
         let seek_offset = 0L in
         return ({ fd = Some fd; seek_offset; m;
                   info = { Mirage_block.sector_size; size_sectors; read_write };
-                  size_bytes; config; use_fsync_after_write })
+                  config; use_fsync_after_write })
   with _ ->
     Log.err (fun f -> f "connect %s: failed to open file" path);
     fail_with (Printf.sprintf "connect %s: failed to open file" path)
@@ -346,21 +343,7 @@ let read x sector_start buffers =
                       let rec loop = function
                         | [] -> Lwt.return_unit
                         | b :: bs ->
-                          let virtual_zeroes = Int64.(sub (add offset (of_int (Cstruct.length b))) x.size_bytes) in
-                          ( if virtual_zeroes <= 0L
-                            then really_read fd b
-                            else begin
-                              (* we've had to round up size_sectors to include all the data.
-                                 We expect End_of_file but ensure that the data missing from the
-                                 file is full of zeroes. *)
-                              Cstruct.memset b 0;
-                              Lwt.catch
-                                (fun () -> really_read fd b)
-                                (function
-                                  | End_of_file -> Lwt.return_unit
-                                  | e -> Lwt.fail e)
-                            end )
-                          >>= fun () ->
+                          really_read fd b >>= fun () ->
                           x.seek_offset <- Int64.(add x.seek_offset (of_int (Cstruct.length b)));
                           loop bs in
                       loop buffers
