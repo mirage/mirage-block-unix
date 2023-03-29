@@ -13,22 +13,23 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-latest
-          - ubuntu-latest
           - windows-latest
         ocaml-compiler:
-          - 4.14.0
+          - 4.14.x
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
         uses: ocaml/setup-ocaml@v2
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          opam-repositories: |
+            default: https://github.com/ocaml-opam/opam-repository-mingw.git#sunset
+            opam: https://github.com/ocaml/opam-repository.git
 
       - run: opam install . --deps-only --with-test
 

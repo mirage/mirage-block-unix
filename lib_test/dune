@@ -2,15 +2,15 @@
  (names benchmark test stress)
  (libraries lwt cstruct-lwt mirage-block-unix cstruct logs logs.fmt ounit2 diet))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps
   (:< test.exe))
  (action
   (run %{<} -runner sequential)))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps
   (:< stress.exe))
  (action
