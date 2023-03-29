@@ -60,7 +60,7 @@ let test_open_read () =
 
 open Mirage_block
 
-let test_open_block () =
+let _test_open_block () =
   let t =
     with_temp_file
       (fun file ->
@@ -217,7 +217,7 @@ let tests = [
   "test ENOENT" >:: test_enoent;
   "test open read" >:: test_open_read;
   (* Doesn't work on travis
-     "test opening a block device" >:: test_open_block;
+     "test opening a block device" >:: _test_open_block;
   *)
   "test read/write after last sector" >:: test_eof;
   "test flush" >:: test_flush;

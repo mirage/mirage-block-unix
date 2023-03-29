@@ -3,5 +3,7 @@
  (public_name mirage-block-unix)
  (libraries cstruct cstruct-lwt logs lwt uri rresult mirage-block)
  (wrapped false)
- (c_names odirect_stubs blkgetsize_stubs lseekhole_stubs flush_stubs
-   writev_stubs readv_stubs flock_stubs discard_stubs chsize_stubs))
+ (foreign_stubs
+  (language c)
+  (names odirect_stubs blkgetsize_stubs lseekhole_stubs flush_stubs
+   writev_stubs readv_stubs flock_stubs discard_stubs chsize_stubs)))
