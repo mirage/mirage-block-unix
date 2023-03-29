@@ -85,6 +85,19 @@ val connect :
     supplying the optional arguments [~buffered:false] and [~sync:false]
     [~lock:true] *)
 
+val with_block :
+  ?buffered:bool ->
+  ?sync:Config.sync_behaviour option ->
+  ?lock:bool ->
+  ?prefered_sector_size:int option ->
+  string ->
+  (t -> 'a Lwt.t) ->
+  'a Lwt.t
+(** [with_block ?buffered ?sync ?lock ?prefered_sector_size path f] connects to
+    a block device (see {!connect}), calls [f b] where [b] is the block device,
+    and calls {!disconnect} on [b] whatever the outcome is. Useful for resource
+    conctrol. *)
+
 val resize : t -> int64 -> (unit, write_error) result Lwt.t
 (** [resize t new_size_sectors] attempts to resize the connected device
     to have the given number of sectors. If successful, subsequent calls
