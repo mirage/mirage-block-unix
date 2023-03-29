@@ -237,6 +237,10 @@ let disconnect t = match t.fd with
   | None ->
     return ()
 
+let with_block ?buffered ?sync ?lock ?prefered_sector_size name f =
+  connect ?buffered ?sync ?lock ?prefered_sector_size name >>= fun b ->
+  Lwt.finalize (fun () -> f b) (fun () -> disconnect b)
+
 let get_info x = return x.info
 
 let really_read fd = Lwt_cstruct.complete (Lwt_cstruct.read fd)

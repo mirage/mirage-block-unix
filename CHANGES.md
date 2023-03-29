@@ -1,3 +1,7 @@
+## unreleased
+
+* Add `Block.with_block` to limit the lifetime of a connected block. (#???, @MisterDA)
+
 ## v2.14.2 (2022-09-15)
 
 * Raise an exception on connect if the file is not aligned to the `sector_size` (#117, @reynir)
