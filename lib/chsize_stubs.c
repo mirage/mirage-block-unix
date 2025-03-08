@@ -53,7 +53,6 @@ errno_t _chsize_s(int fd, int64_t size) {
 #include <stdio.h>
 static void worker_chsize(struct job_chsize *job)
 {
-fprintf(stderr, "fd = %d\n", job->fd);
   job->errno_copy = _chsize_s(job->fd, job->size);
 }
 
